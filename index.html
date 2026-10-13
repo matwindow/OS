@@ -15,114 +15,197 @@
 
     <title>MatOS</title>
     <style>
-      :root{--taskbar-width:75px;--icon-size:48px}
-      .normal{
-         font-family: Tahoma, Geneva, sans-serif;
-    font-size: 22px;
-    letter-spacing: -0.4px;
-    word-spacing: 2.8px;
-    color: #FFFFFF;
-    font-weight: 400;
-    text-decoration: none;
-    font-style: normal;
-    font-variant: normal;
-    text-transform: capitalize;
-      }
-        .sidebar-taskbar {
-    position: fixed;
-    right: 20px;
-    top: 50%;
-    transform: translateY(-50%);
-    
-    width: var(--taskbar-width);
-    height: 90vh;
-    
-    background: rgba(15, 15, 25, 0.35);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    
-    border-radius: 24px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    
-    box-sizing: border-box;
-    z-index: 9999;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-}
+      :root{--taskbar-width:75px;--icon-size:48px;--window-bg:#2f5bd9;--titlebar-bg:#0b0b0f;--panel-bg:#d9d9d9;--close-red:#e93333;--close-gray:#4e4d53;--dark:#0e0e12;--light-text:#f3f3f3}
 
-.sidebar-inner{
-  width:100%;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:12px;
-  padding:18px 8px;
-  box-sizing:border-box;
-}
-
-.task-btn{
-  width:var(--taskbar-width);
-  height:var(--icon-size);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:transparent;
-  border:none;
-  padding:4px;
-  cursor:pointer;
-  position:relative;
-}
-.task-btn:focus{outline:2px solid rgba(255,255,255,0.06);border-radius:10px}
-.task-btn img{ width:var(--icon-size); height:var(--icon-size); object-fit:cover; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.5)}
-
-/* small notification badge */
-.badge{
-  position:absolute;
-  left:10px;
-  top:6px;
-  width:12px;
-  height:12px;
-  background:#e74c3c;
-  border-radius:50%;
-  box-shadow:0 2px 6px rgba(0,0,0,0.4);
-  border:2px solid rgba(255,255,255,0.08);
-}
-
+      *{box-sizing:border-box}
       body {
-            background-image: url('jpg/bg.jpg'); 
-            background-repeat: no-repeat; 
-            background-position: center; 
-            background-size: cover; 
-            background-attachment: fixed; 
-            min-height: 100vh; 
-            margin: 0;
-        }
+        margin:0;
+        min-height:100vh;
+        background:#d7d7d7;
+        font-family: Tahoma, Geneva, sans-serif;
+        overflow:hidden;
+      }
 
-/* simple fake window for demo */
-.fake-window{
-  position:fixed;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%);
-  width:60vw;
-  height:60vh;
-  background:rgba(8,8,12,0.9);
-  border-radius:10px;
-  border:1px solid rgba(255,255,255,0.06);
-  box-shadow:0 20px 80px rgba(0,0,0,0.6);
-  padding:12px;
-  color:#fff;
-  z-index:9998;
-}
+      .page-label{
+        position: absolute;
+        font-size: 24px;
+        font-weight: 700;
+        color: #111;
+        letter-spacing: 0.5px;
+        user-select:none;
+      }
+      .page-label.left{ left: 32px; top: 18px; }
+      .page-label.right{ left: 540px; top: 18px; }
 
-.close-btn{position:absolute;right:10px;top:8px;background:#222;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer}
+      .window {
+        position: absolute;
+        left: 120px;
+        top: 90px;
+        width: 560px;
+        height: 420px;
+        background: var(--window-bg);
+        border: 3px solid #000;
+        border-radius: 16px 16px 0 0;
+        box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+        cursor: grab;
+        user-select:none;
+        overflow:hidden;
+      }
+      .window.dragging { cursor:grabbing; }
+
+      .titlebar {
+        height: 42px;
+        background: var(--titlebar-bg);
+        padding: 6px 10px 6px 12px;
+        display:flex;
+        align-items:center;
+        justify-content:flex-end;
+        gap:12px;
+      }
+
+      .window-controls {
+        display:flex;
+        align-items:center;
+        gap:12px;
+      }
+
+      .control-btn {
+        width: 28px;
+        height: 24px;
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 4px;
+        position: relative;
+        background: rgba(255,255,255,0.08);
+        cursor:pointer;
+      }
+      .control-btn.minimize::before {
+        content: "";
+        position:absolute;
+        left: 7px; right: 7px; bottom: 6px;
+        height: 3px; background:#fff; border-radius:2px;
+      }
+      .control-btn.maximize::before {
+        content: "";
+        position:absolute;
+        inset:6px;
+        border:2px solid #fff; border-radius: 2px;
+      }
+      .control-btn.close {
+        background: var(--close-gray);
+        border-color: rgba(255,255,255,0.2);
+      }
+      .control-btn.close::before,
+      .control-btn.close::after {
+        content: "";
+        position:absolute;
+        left: 12px; top: 5px; width: 2px; height: 14px; background:#fff; border-radius:2px;
+      }
+      .control-btn.close::before { transform: rotate(45deg); }
+      .control-btn.close::after { transform: rotate(-45deg); }
+      .control-btn.close:hover { background: var(--close-red); }
+      .control-btn:hover{ filter:brightness(1.1); }
+
+      .window-body {
+        width:100%;
+        height: calc(100% - 42px);
+        background: var(--window-bg);
+      }
+
+      .taskbar-note {
+        position:absolute;
+        right: 340px;
+        top: 80px;
+        font-size: 14px;
+        color:#1a1a1a;
+        font-weight: 700;
+        padding: 6px 10px;
+        background: rgba(255,255,255,0.25);
+        border-radius: 8px;
+      }
+
+      .taskbar-note .small-line {
+        display:block;
+        margin-top:6px;
+        color:#0a0a0a;
+        font-weight:600;
+      }
+
+      .sidebar-taskbar {
+        position: fixed;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: var(--taskbar-width);
+        height: 90vh;
+        background: rgba(15, 15, 25, 0.35);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        box-sizing: border-box;
+        z-index: 9999;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+      }
+
+      .sidebar-inner{
+        width:100%;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        gap:12px;
+        padding:18px 8px;
+        box-sizing:border-box;
+      }
+
+      .task-btn{
+        width:var(--taskbar-width);
+        height:var(--icon-size);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:transparent;
+        border:none;
+        padding:4px;
+        cursor:pointer;
+        position:relative;
+      }
+      .task-btn:focus{outline:2px solid rgba(255,255,255,0.06);border-radius:10px}
+      .task-btn img{ width:var(--icon-size); height:var(--icon-size); object-fit:cover; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.5)}
+
+      .badge{
+        position:absolute;
+        left:10px;
+        top:6px;
+        width:12px;
+        height:12px;
+        background:#e74c3c;
+        border-radius:50%;
+        box-shadow:0 2px 6px rgba(0,0,0,0.4);
+        border:2px solid rgba(255,255,255,0.08);
+      }
+
+      .fake-window{
+        position:fixed;
+        left:50%;
+        top:50%;
+        transform:translate(-50%,-50%);
+        width:60vw;
+        height:60vh;
+        background:rgba(8,8,12,0.9);
+        border-radius:10px;
+        border:1px solid rgba(255,255,255,0.06);
+        box-shadow:0 20px 80px rgba(0,0,0,0.6);
+        padding:12px;
+        color:#fff;
+        z-index:9998;
+      }
+      .close-btn{position:absolute;right:10px;top:8px;background:#222;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer}
     </style>
     <script>
-      // Taskbar icons storage and rendering
       const STORAGE_KEY = 'matos_taskbar_icons_v1';
-
       const defaultIcons = [
         {icon: 'png/icon.png', action: '/open Browser', title: 'Browser'},
         {icon: 'png/icon.png', action: '/open Files', title: 'Files', notify: true},
@@ -139,7 +222,6 @@
           const parsed = JSON.parse(raw);
           if(Array.isArray(parsed)) return parsed;
         }catch(e){console.error('Failed to load icons',e)}
-        // fallback
         return defaultIcons.slice();
       }
 
@@ -172,7 +254,6 @@
           }
 
           btn.addEventListener('click', ()=>handleAction(it, idx));
-
           inner.appendChild(btn);
         });
       }
@@ -182,19 +263,18 @@
         if(action.startsWith('/open ')){
           const name = action.slice(6) || 'App';
           openFakeWindow(name);
-          // clear notification for this icon on open
           if(item.notify){
             const icons = loadIcons();
-            if(icons[idx]){ delete icons[idx].notify; saveIcons(icons); renderTaskbar(); }
+            if(icons[idx]) delete icons[idx].notify;
+            saveIcons(icons);
+            renderTaskbar();
           }
           return;
         }
-        // other pretend actions
         alert('Action: ' + action);
       }
 
       function openFakeWindow(name){
-        // simple demo window
         const existing = document.querySelector('.fake-window');
         if(existing) existing.remove();
         const win = document.createElement('div');
@@ -204,25 +284,58 @@
         win.querySelector('.close-btn').addEventListener('click', ()=>win.remove());
       }
 
-      function escapeHtml(s){ return String(s).replace(/[&"'<>]/g, c=>({
-        '&':'&amp;','"':'&quot;','\'':'&#39;','<':'&lt;','>':'&gt;'
-      }[c])); }
+      function escapeHtml(s){ return String(s).replace(/[&"'<>]/g, c=>({ '&':'&amp;','"':'&quot;','\'':'&#39;','<':'&lt;','>':'&gt;' }[c])); }
 
       document.addEventListener('DOMContentLoaded', ()=>{
         renderTaskbar();
+        window.matos = { loadIcons, saveIcons, renderTaskbar };
 
-        // For debugging: expose functions
-        window.matos = {loadIcons, saveIcons, renderTaskbar};
+        const windowEl = document.querySelector('.window');
+        const titlebar = document.querySelector('.titlebar');
+        if(windowEl && titlebar){
+          let dragging = false;
+          let offsetX = 0;
+          let offsetY = 0;
+
+          titlebar.addEventListener('mousedown', (e)=>{
+            dragging = true;
+            windowEl.classList.add('dragging');
+            const rect = windowEl.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+          });
+
+          document.addEventListener('mousemove', (e)=>{
+            if(!dragging) return;
+            windowEl.style.left = (e.clientX - offsetX) + 'px';
+            windowEl.style.top = (e.clientY - offsetY) + 'px';
+          });
+
+          document.addEventListener('mouseup', ()=>{
+            dragging = false;
+            windowEl.classList.remove('dragging');
+          });
+        }
       });
     </script>
 </head>
 <body>
-  <h1 class="normal">Test</h1>
-    <div class="sidebar-taskbar" aria-label="Taskbar">
-      <div class="sidebar-inner" aria-live="polite">
-        <!-- Icons are rendered dynamically from localStorage -->
+  <div class="page-label left">Movable Window</div>
+  <div class="page-label right">Blurry</div>
+
+  <div class="window" aria-label="Movable demo window">
+    <div class="titlebar">
+      <div class="window-controls" aria-label="Window controls">
+        <button class="control-btn minimize" aria-label="Minimize window"></button>
+        <button class="control-btn maximize" aria-label="Maximize window"></button>
+        <button class="control-btn close" aria-label="Close window"></button>
       </div>
     </div>
+    <div class="window-body"></div>
+  </div>
 
+  <div class="sidebar-taskbar" aria-label="Taskbar">
+    <div class="sidebar-inner" aria-live="polite"></div>
+  </div>
 </body>
 </html>
