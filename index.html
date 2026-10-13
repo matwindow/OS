@@ -99,37 +99,128 @@
             min-height: 100vh; 
             margin: 0;
         }
+
+/* simple fake window for demo */
+.fake-window{
+  position:fixed;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:60vw;
+  height:60vh;
+  background:rgba(8,8,12,0.9);
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.06);
+  box-shadow:0 20px 80px rgba(0,0,0,0.6);
+  padding:12px;
+  color:#fff;
+  z-index:9998;
+}
+
+.close-btn{position:absolute;right:10px;top:8px;background:#222;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer}
     </style>
     <script>
-      // Simple demo interactions: click icons to show an alert (replace with real actions)
+      // Taskbar icons storage and rendering
+      const STORAGE_KEY = 'matos_taskbar_icons_v1';
+
+      const defaultIcons = [
+        {icon: 'png/icon.png', action: '/open Browser', title: 'Browser'},
+        {icon: 'png/icon.png', action: '/open Files', title: 'Files', notify: true},
+        {icon: 'png/icon.png', action: '/open Settings', title: 'Settings'}
+      ];
+
+      function loadIcons(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if(!raw) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultIcons));
+            return defaultIcons.slice();
+          }
+          const parsed = JSON.parse(raw);
+          if(Array.isArray(parsed)) return parsed;
+        }catch(e){console.error('Failed to load icons',e)}
+        // fallback
+        return defaultIcons.slice();
+      }
+
+      function saveIcons(arr){
+        try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }catch(e){console.error('Failed to save icons',e)}
+      }
+
+      function renderTaskbar(){
+        const inner = document.querySelector('.sidebar-inner');
+        if(!inner) return;
+        inner.innerHTML = '';
+        const icons = loadIcons();
+        icons.forEach((it, idx)=>{
+          const btn = document.createElement('button');
+          btn.className = 'task-btn';
+          btn.setAttribute('data-action', it.action || '');
+          btn.setAttribute('title', it.title || it.action || 'App');
+          btn.setAttribute('aria-label', it.title || ('App ' + (idx+1)));
+
+          const img = document.createElement('img');
+          img.src = it.icon || 'png/icon.png';
+          img.alt = it.title || 'App icon';
+          btn.appendChild(img);
+
+          if(it.notify){
+            const badge = document.createElement('span');
+            badge.className = 'badge';
+            badge.setAttribute('aria-hidden','true');
+            btn.appendChild(badge);
+          }
+
+          btn.addEventListener('click', ()=>handleAction(it, idx));
+
+          inner.appendChild(btn);
+        });
+      }
+
+      function handleAction(item, idx){
+        const action = (item && item.action) || '';
+        if(action.startsWith('/open ')){
+          const name = action.slice(6) || 'App';
+          openFakeWindow(name);
+          // clear notification for this icon on open
+          if(item.notify){
+            const icons = loadIcons();
+            if(icons[idx]){ delete icons[idx].notify; saveIcons(icons); renderTaskbar(); }
+          }
+          return;
+        }
+        // other pretend actions
+        alert('Action: ' + action);
+      }
+
+      function openFakeWindow(name){
+        // simple demo window
+        const existing = document.querySelector('.fake-window');
+        if(existing) existing.remove();
+        const win = document.createElement('div');
+        win.className = 'fake-window';
+        win.innerHTML = `<button class="close-btn">Close</button><h2>${escapeHtml(name)}</h2><p>This is a demo window for <strong>${escapeHtml(name)}</strong>. Replace with your app implementation.</p>`;
+        document.body.appendChild(win);
+        win.querySelector('.close-btn').addEventListener('click', ()=>win.remove());
+      }
+
+      function escapeHtml(s){ return String(s).replace(/[&"'<>]/g, c=>({
+        '&':'&amp;','"':'&quot;','\'':'&#39;','<':'&lt;','>':'&gt;'
+      }[c])); }
+
       document.addEventListener('DOMContentLoaded', ()=>{
-        document.querySelectorAll('.task-btn').forEach(btn=>{
-          btn.addEventListener('click', ()=>{
-            const name = btn.getAttribute('data-app') || 'App';
-            alert(name + ' clicked! (replace with real action)');
-          })
-        })
-      })
+        renderTaskbar();
+
+        // For debugging: expose functions
+        window.matos = {loadIcons, saveIcons, renderTaskbar};
+      });
     </script>
 </head>
 <body>
   <h1 class="normal">Test</h1>
     <div class="sidebar-taskbar" aria-label="Taskbar">
-      <div class="sidebar-inner">
-        <button class="task-btn" data-app="Browser" title="Browser">
-          <img src="png/icon.png" alt="Browser icon">
-        </button>
-
-        <button class="task-btn" data-app="Files" title="Files">
-          <img src="png/icon.png" alt="Files icon">
-          <span class="badge" aria-hidden="true"></span>
-        </button>
-
-        <button class="task-btn" data-app="Settings" title="Settings">
-          <img src="png/icon.png" alt="Settings icon">
-        </button>
-
-        <!-- Add more icons by copying a .task-btn and changing data-app/title/src -->
+      <div class="sidebar-inner" aria-live="polite">
+        <!-- Icons are rendered dynamically from localStorage -->
       </div>
     </div>
 
