@@ -107,7 +107,7 @@
         border: 2px solid rgba(255,255,255,0.08);
       }
 
-      /* Demo window - glass style */
+      /* Window - glass style, multiple instances supported */
       .demo-window {
         position: fixed;
         left: 90px;
@@ -123,6 +123,7 @@
         border: 1px solid rgba(255,255,255,0.06);
         backdrop-filter: blur(14px) saturate(120%);
         -webkit-backdrop-filter: blur(14px) saturate(120%);
+        touch-action: none;
       }
 
       .demo-window.maximized {
@@ -141,7 +142,7 @@
         align-items: center;
         justify-content: space-between;
         padding: 6px 10px;
-        background: var(--titlebar-bg);
+        background: rgba(6,6,8,0.6);
         cursor: grab;
         -webkit-user-drag: none;
       }
@@ -152,7 +153,6 @@
 
       .window-controls { display:flex; gap:8px; align-items:center; padding-right:6px; }
 
-      /* small square controls showing icons (no text) */
       .control-btn {
         width: 28px;
         height: 22px;
@@ -181,6 +181,21 @@
       .window-text { margin:0; color: #dfe5ff; }
 
       .glass-top { position:absolute; left:0; right:0; top:0; height:160px; background: rgba(47,91,217,0.16); backdrop-filter: blur(8px); }
+
+      /* resize handle */
+      .resizer {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        right: 8px;
+        bottom: 8px;
+        cursor: se-resize;
+        z-index: 21000;
+        border-radius: 3px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.06);
+      }
+
     </style>
     <script>
       const STORAGE_KEY = 'matos_taskbar_icons_v1';
@@ -189,6 +204,9 @@
         { icon: 'png/icon.png', action: '/open Files', title: 'Files', notify: true },
         { icon: 'png/icon.png', action: '/open Settings', title: 'Settings' }
       ];
+
+      let zCounter = 20000;
+      function bringToFront(el){ zCounter += 1; el.style.zIndex = zCounter; }
 
       function loadIcons() {
         try {
@@ -237,7 +255,8 @@
         const action = (item && item.action) || '';
         if (action.startsWith('/open ')) {
           const name = action.slice(6) || 'App';
-          openDemoWindow(name);
+          // create a new window instance each time so multiple apps can be opened
+          createAppWindow(name);
           if (item.notify) {
             const icons = loadIcons();
             if (icons[idx]) delete icons[idx].notify;
@@ -249,76 +268,90 @@
         alert('Action: ' + action);
       }
 
-      function openDemoWindow(name) {
-        let win = document.querySelector('.demo-window');
-        if (!win) {
-          win = document.createElement('div'); win.className = 'demo-window';
-          win.innerHTML = `
-            <div class="titlebar">
-              <div class="title-left"><div class="dot"></div></div>
-              <div class="window-controls">
-                <button class="control-btn minimize" title="Minimize"> <svg viewBox="0 0 24 24"><rect x="4" y="14" width="16" height="2" rx="1"/></svg></button>
-                <button class="control-btn maximize" title="Maximize"> <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg></button>
-                <button class="control-btn close" title="Close"> <svg viewBox="0 0 24 24"><path d="M6 6 L18 18 M6 18 L18 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button>
-              </div>
+      function createAppWindow(name){
+        const id = 'win_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+        const win = document.createElement('div');
+        win.className = 'demo-window';
+        win.setAttribute('data-win-id', id);
+        win.innerHTML = `
+          <div class="titlebar">
+            <div class="title-left"><div class="dot"></div></div>
+            <div class="window-controls">
+              <button class="control-btn minimize" title="Minimize"> <svg viewBox="0 0 24 24"><rect x="4" y="14" width="16" height="2" rx="1"/></svg></button>
+              <button class="control-btn maximize" title="Maximize"> <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg></button>
+              <button class="control-btn close" title="Close"> <svg viewBox="0 0 24 24"><path d="M6 6 L18 18 M6 18 L18 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button>
             </div>
-            <div class="body">
-              <div class="glass-top"></div>
-              <div class="window-content">
-                <h2 class="window-title">${escapeHtml(name)}</h2>
-                <p class="window-text">This is a demo window for ${escapeHtml(name)}. Replace with your app implementation.</p>
-              </div>
+          </div>
+          <div class="body">
+            <div class="glass-top"></div>
+            <div class="window-content">
+              <h2 class="window-title">${escapeHtml(name)}</h2>
+              <p class="window-text">This is a demo window for ${escapeHtml(name)}. Replace with your app implementation.</p>
             </div>
-          `;
+            <div class="resizer" aria-hidden="true"></div>
+          </div>
+        `;
 
-          // control handlers
-          win.querySelector('.control-btn.close').addEventListener('click', () => win.classList.add('hidden'));
-          win.querySelector('.control-btn.minimize').addEventListener('click', () => win.classList.add('hidden'));
-          win.querySelector('.control-btn.maximize').addEventListener('click', () => {
-            win.classList.toggle('maximized');
-          });
+        // append then wire events
+        document.body.appendChild(win);
+        bringToFront(win);
 
-          // drag handling
-          let dragging = false; let offsetX = 0; let offsetY = 0;
-          const titlebar = win.querySelector('.titlebar');
+        const closeBtn = win.querySelector('.control-btn.close');
+        const minBtn = win.querySelector('.control-btn.minimize');
+        const maxBtn = win.querySelector('.control-btn.maximize');
+        const titlebar = win.querySelector('.titlebar');
+        const resizer = win.querySelector('.resizer');
 
-          titlebar.addEventListener('mousedown', (e) => {
-            // ignore clicks on controls
-            if (e.target.closest('.control-btn')) return;
-            dragging = true; win.classList.add('dragging');
-            const rect = win.getBoundingClientRect();
-            offsetX = e.clientX - rect.left; offsetY = e.clientY - rect.top;
-          });
+        closeBtn.addEventListener('click', () => win.remove());
+        minBtn.addEventListener('click', () => win.classList.add('hidden'));
+        maxBtn.addEventListener('click', () => win.classList.toggle('maximized'));
 
-          document.addEventListener('mousemove', (e) => {
-            if (!dragging) return;
-            // keep within viewport
-            const vw = window.innerWidth; const vh = window.innerHeight;
-            let left = e.clientX - offsetX; let top = e.clientY - offsetY;
-            left = Math.max(8, Math.min(left, vw - win.offsetWidth - 8));
-            top = Math.max(8, Math.min(top, vh - win.offsetHeight - 8));
-            win.style.left = left + 'px'; win.style.top = top + 'px';
-          });
+        // bring to front when clicked
+        win.addEventListener('mousedown', () => bringToFront(win));
 
-          document.addEventListener('mouseup', () => { if (dragging) { dragging = false; win.classList.remove('dragging'); } });
+        // drag
+        let dragging = false, offsetX = 0, offsetY = 0;
+        titlebar.addEventListener('mousedown', (e) => {
+          if (e.target.closest('.control-btn')) return; // ignore clicks on controls
+          dragging = true; win.classList.add('dragging');
+          const rect = win.getBoundingClientRect();
+          offsetX = e.clientX - rect.left; offsetY = e.clientY - rect.top;
+        });
+        document.addEventListener('mousemove', (e) => {
+          if (!dragging) return;
+          const vw = window.innerWidth, vh = window.innerHeight;
+          let left = e.clientX - offsetX, top = e.clientY - offsetY;
+          left = Math.max(8, Math.min(left, vw - win.offsetWidth - 8));
+          top = Math.max(8, Math.min(top, vh - win.offsetHeight - 8));
+          win.style.left = left + 'px'; win.style.top = top + 'px';
+        });
+        document.addEventListener('mouseup', () => { if (dragging) { dragging = false; win.classList.remove('dragging'); } });
 
-          document.body.appendChild(win);
-        }
+        // resize
+        let resizing = false, startW = 0, startH = 0, startX = 0, startY = 0;
+        resizer.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          resizing = true; startW = win.offsetWidth; startH = win.offsetHeight; startX = e.clientX; startY = e.clientY;
+          bringToFront(win);
+        });
+        document.addEventListener('mousemove', (e) => {
+          if (!resizing) return;
+          const dx = e.clientX - startX; const dy = e.clientY - startY;
+          const newW = Math.max(200, startW + dx); const newH = Math.max(120, startH + dy);
+          win.style.width = newW + 'px'; win.style.height = newH + 'px';
+        });
+        document.addEventListener('mouseup', () => { if (resizing) resizing = false; });
 
-        win.classList.remove('hidden');
-        const titleEl = win.querySelector('.window-title');
-        const textEl = win.querySelector('.window-text');
-        if (titleEl) titleEl.textContent = name;
-        if (textEl) textEl.textContent = 'This is a demo window for ' + name + '. Replace with your app implementation.';
-        win.style.zIndex = 20000;
+        // double click titlebar to maximize/restore
+        titlebar.addEventListener('dblclick', () => win.classList.toggle('maximized'));
       }
 
       function escapeHtml(str) { return String(str).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[char])); }
 
       document.addEventListener('DOMContentLoaded', () => {
         renderTaskbar();
-        window.matos = { loadIcons, saveIcons, renderTaskbar, openDemoWindow };
-        window.openDemoWindow = openDemoWindow;
+        window.matos = { loadIcons, saveIcons, renderTaskbar, createAppWindow };
+        window.createAppWindow = createAppWindow;
       });
     </script>
 </head>
