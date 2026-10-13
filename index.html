@@ -191,6 +191,7 @@
       }
 
       .window-content { position: relative; z-index: 2; padding: 18px; }
+      .window-header { margin-bottom: 8px; }
       .window-title { font-size: 26px; margin:0 0 8px 0; font-weight:700; }
       .window-text { margin:0; color: #dfe5ff; }
 
@@ -207,6 +208,18 @@
         border-radius: 3px;
         background: rgba(255,255,255,0.04);
         border: 1px solid rgba(255,255,255,0.06);
+      }
+
+      /* Missing .window file indicator */
+      .file-missing {
+        display: inline-block;
+        color: #ff5c5c;
+        font-weight: 800;
+        font-size: 16px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: rgba(255,92,92,0.04);
+        text-shadow: 0 0 18px rgba(255,80,80,0.6), 0 2px 6px rgba(0,0,0,0.4);
       }
     </style>
     <script>
@@ -387,6 +400,13 @@
         titlebar.addEventListener('dblclick', () => win.classList.toggle('maximized'));
 
         const cfg = await loadWindowConfig(name);
+        if (!cfg) {
+          const main = win.querySelector('.window-main');
+          if (main) main.innerHTML = '<div class="file-missing">404 .window File Not Found!</div>';
+          if (titleText) titleText.style.color = '#ff5c5c';
+          return;
+        }
+
         if (cfg){
           const controls = {
             close: cfg.Close || cfg.CloseButton || cfg.CloseBtn || {},
