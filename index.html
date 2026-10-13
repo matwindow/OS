@@ -140,7 +140,6 @@
         height: 44px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
         gap: 12px;
         padding: 6px 10px;
         background: rgba(6,6,8,0.62);
@@ -149,24 +148,19 @@
       }
       .demo-window.dragging .titlebar { cursor: grabbing; }
 
+      /* Title on the left corner */
       .title-text {
-        position: absolute;
-        right: 90px;
-        top: 50%;
-        transform: translateY(-50%);
         font-size: 14px;
         font-weight: 700;
         color: #f1f5ff;
         letter-spacing: 0.02em;
         white-space: nowrap;
         text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        margin-left: 6px;
       }
 
       .window-controls {
-        position: absolute;
-        right: 8px;
-        top: 50%;
-        transform: translateY(-50%);
+        margin-left: auto;
         display: flex;
         gap: 8px;
         align-items: center;
@@ -335,7 +329,8 @@
           <div class="body">
             <div class="glass-top"></div>
             <div class="window-content">
-              <p class="window-text">Loading...</p>
+              <div class="window-header"><h2 class="window-title">${escapeHtml(name)}</h2></div>
+              <div class="window-main"><p class="window-text">Loading...</p></div>
             </div>
             <div class="resizer" aria-hidden="true"></div>
           </div>
@@ -349,6 +344,7 @@
         const maxBtn = win.querySelector('.control-btn.maximize');
         const titlebar = win.querySelector('.titlebar');
         const titleText = win.querySelector('.title-text');
+        const contentText = win.querySelector('.window-text');
         const resizer = win.querySelector('.resizer');
 
         closeBtn.addEventListener('click', () => win.remove());
@@ -408,7 +404,10 @@
           else if (controls.minimize && controls.minimize.enabled === false){ minBtn.disabled = true; }
 
           const style = cfg.Style || cfg.style || {};
-          if (style.title) { if (titleText) titleText.textContent = style.title; }
+          // title: prefer explicit style.title, fall back to provided name
+          if (style.title) { if (titleText) titleText.textContent = style.title; if (contentText) contentText.textContent = ''; }
+          else { if (titleText) titleText.textContent = name; }
+
           if (style.titlebar && style.titlebar.color && style.titlebar.color !== 'default'){
             win.querySelector('.titlebar').style.background = style.titlebar.color;
           }
@@ -428,7 +427,15 @@
           if (cfg.height) win.style.height = (typeof cfg.height === 'number' ? cfg.height + 'px' : cfg.height);
 
           const onOpen = cfg.OnOpen || cfg.onOpen || cfg.onopen || cfg.Onopen;
-          if (typeof onOpen === 'function') { onOpen.call(null, win); }
+          if (typeof onOpen === 'function') {
+            try { onOpen.call(null, win); } catch(e){ console.error('onOpen error', e); }
+          }
+
+          // if app provides render function, call it to populate main area
+          if (typeof cfg.render === 'function'){
+            try { cfg.render(win.querySelector('.window-main') || win.querySelector('.window-content')); }
+            catch(e){ console.error('render error', e); }
+          }
         }
       }
 
