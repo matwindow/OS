@@ -18,11 +18,10 @@
       :root {
         --taskbar-width: 75px;
         --icon-size: 48px;
-        --window-blue: #2f5bd9;
-        --titlebar-bg: #0c0c10;
-        --titlebar-dark: #07090d;
+        --window-blue: rgba(47, 91, 217, 0.92);
+        --titlebar-bg: rgba(12, 12, 16, 0.9);
         --close-red: #f13b3b;
-        --close-gray: #4e4d53;
+        --close-gray: rgba(78, 77, 83, 0.9);
       }
 
       * { box-sizing: border-box; }
@@ -107,26 +106,28 @@
         border: 2px solid rgba(255,255,255,0.08);
       }
 
-      .fake-window {
+      .demo-window {
         position: fixed;
         left: 90px;
         top: 90px;
         width: 560px;
         height: 420px;
-        background: var(--window-blue);
         border: 3px solid #000;
         border-radius: 16px 16px 0 0;
         box-shadow: 0 8px 18px rgba(0,0,0,0.12);
         overflow: hidden;
         z-index: 20000;
         user-select: none;
+        background: rgba(47, 91, 217, 0.52);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
       }
 
-      .fake-window.hidden { display: none; }
+      .demo-window.hidden { display: none; }
 
-      .fake-window .titlebar {
+      .demo-window .titlebar {
         height: 42px;
-        background: var(--titlebar-bg);
+        background: rgba(12, 12, 16, 0.82);
         display: flex;
         align-items: center;
         justify-content: flex-end;
@@ -190,18 +191,13 @@
       .control-btn.close:hover { background: var(--close-red); }
       .control-btn:hover { filter: brightness(1.1); }
 
-      .fake-window .body {
+      .demo-window .body {
+        position: relative;
         width: 100%;
         height: calc(100% - 42px);
-        background: rgba(0, 0, 0, 0.72);
-        position: relative;
-        padding: 16px 18px 0 18px;
-      }
-
-      .window-main-area {
-        position: absolute;
-        inset: 0 0 0 0;
-        background: linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 0%), var(--window-blue);
+        background: rgba(10, 10, 18, 0.82);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
       }
 
       .window-content {
@@ -226,36 +222,27 @@
         margin: 0;
       }
 
-      .blue-block {
+      .blue-panel {
         position: absolute;
         left: 0;
         right: 0;
-        top: 68px;
-        height: 160px;
-        background: var(--window-blue);
+        top: 0;
+        height: 175px;
+        background: rgba(47, 91, 217, 0.8);
+        z-index: 0;
       }
 
-      .bottom-panel {
+      .close-button {
         position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 70px;
-        background: rgba(0,0,0,0.85);
-        border-top: 1px solid rgba(255,255,255,0.04);
-      }
-
-      .app-close {
-        position: absolute;
-        right: 16px;
-        top: 10px;
-        background: rgba(255,255,255,0.1);
+        right: 14px;
+        top: 8px;
+        background: rgba(255,255,255,0.12);
         color: #fff;
         border: 1px solid rgba(255,255,255,0.12);
         border-radius: 6px;
         padding: 6px 12px;
-        font-size: 12px;
         cursor: pointer;
+        z-index: 5;
       }
     </style>
     <script>
@@ -323,7 +310,7 @@
         const action = (item && item.action) || '';
         if (action.startsWith('/open ')) {
           const name = action.slice(6) || 'App';
-          openFakeWindow(name);
+          openDemoWindow(name);
           if (item.notify) {
             const icons = loadIcons();
             if (icons[idx]) delete icons[idx].notify;
@@ -335,41 +322,39 @@
         alert('Action: ' + action);
       }
 
-      function openFakeWindow(name) {
-        const existing = document.querySelector('.fake-window');
-        if (existing) {
-          existing.classList.remove('hidden');
-          existing.querySelector('.window-title').textContent = name;
-          existing.querySelector('.window-text').textContent = 'This is a demo window for ' + name + '. Replace with your app implementation.';
-          existing.style.zIndex = 20000;
-          return;
+      function openDemoWindow(name) {
+        let win = document.querySelector('.demo-window');
+
+        if (!win) {
+          win = document.createElement('div');
+          win.className = 'demo-window';
+          win.innerHTML = `
+            <div class="titlebar">
+              <div class="window-controls">
+                <button class="control-btn minimize" aria-label="Minimize window" title="Minimize"></button>
+                <button class="control-btn maximize" aria-label="Maximize window" title="Maximize"></button>
+                <button class="control-btn close" aria-label="Close window" title="Close"></button>
+              </div>
+            </div>
+            <div class="body">
+              <button class="close-button">Close</button>
+              <div class="blue-panel"></div>
+              <div class="window-content">
+                <h2 class="window-title">${escapeHtml(name)}</h2>
+                <p class="window-text">This is a demo window for ${escapeHtml(name)}. Replace with your app implementation.</p>
+              </div>
+            </div>
+          `;
+
+          const closeButtons = win.querySelectorAll('.close, .close-button');
+          closeButtons.forEach(btn => btn.addEventListener('click', () => win.classList.add('hidden')));
+          document.body.appendChild(win);
         }
 
-        const win = document.createElement('div');
-        win.className = 'fake-window';
-        win.innerHTML = `
-          <div class="titlebar">
-            <div class="window-controls">
-              <button class="control-btn minimize" aria-label="Minimize window" title="Minimize"></button>
-              <button class="control-btn maximize" aria-label="Maximize window" title="Maximize"></button>
-              <button class="control-btn close" aria-label="Close window" title="Close"></button>
-            </div>
-          </div>
-          <div class="body">
-            <div class="window-main-area"></div>
-            <button class="app-close">Close</button>
-            <div class="window-content">
-              <h2 class="window-title">${escapeHtml(name)}</h2>
-              <p class="window-text">This is a demo window for ${escapeHtml(name)}. Replace with your app implementation.</p>
-            </div>
-            <div class="blue-block"></div>
-            <div class="bottom-panel"></div>
-          </div>
-        `;
-
-        win.querySelector('.close').addEventListener('click', () => win.classList.add('hidden'));
-        win.querySelector('.app-close').addEventListener('click', () => win.classList.add('hidden'));
-        document.body.appendChild(win);
+        win.classList.remove('hidden');
+        win.querySelector('.window-title').textContent = name;
+        win.querySelector('.window-text').textContent = 'This is a demo window for ' + name + '. Replace with your app implementation.';
+        win.style.zIndex = '20000';
       }
 
       function escapeHtml(str) {
@@ -384,8 +369,8 @@
 
       document.addEventListener('DOMContentLoaded', () => {
         renderTaskbar();
-        window.matos = { loadIcons, saveIcons, renderTaskbar, openFakeWindow };
-        window.openFakeWindow = openFakeWindow;
+        window.matos = { loadIcons, saveIcons, renderTaskbar, openDemoWindow };
+        window.openDemoWindow = openDemoWindow;
       });
     </script>
 </head>
