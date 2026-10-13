@@ -15,6 +15,7 @@
 
     <title>MatOS</title>
     <style>
+      :root{--taskbar-width:75px;--icon-size:48px}
       .normal{
          font-family: Tahoma, Geneva, sans-serif;
     font-size: 22px;
@@ -33,7 +34,7 @@
     top: 50%;
     transform: translateY(-50%);
     
-    width: 75px;
+    width: var(--taskbar-width);
     height: 90vh;
     
     background: rgba(15, 15, 25, 0.35);
@@ -46,8 +47,48 @@
     
     box-sizing: border-box;
     z-index: 9999;
+    display:flex;
+    align-items:center;
+    justify-content:center;
 }
 
+.sidebar-inner{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
+  padding:18px 8px;
+  box-sizing:border-box;
+}
+
+.task-btn{
+  width:var(--taskbar-width);
+  height:var(--icon-size);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:transparent;
+  border:none;
+  padding:4px;
+  cursor:pointer;
+  position:relative;
+}
+.task-btn:focus{outline:2px solid rgba(255,255,255,0.06);border-radius:10px}
+.task-btn img{ width:var(--icon-size); height:var(--icon-size); object-fit:cover; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.5)}
+
+/* small notification badge */
+.badge{
+  position:absolute;
+  left:10px;
+  top:6px;
+  width:12px;
+  height:12px;
+  background:#e74c3c;
+  border-radius:50%;
+  box-shadow:0 2px 6px rgba(0,0,0,0.4);
+  border:2px solid rgba(255,255,255,0.08);
+}
 
       body {
             background-image: url('jpg/bg.jpg'); 
@@ -59,11 +100,38 @@
             margin: 0;
         }
     </style>
-    <script></script>
+    <script>
+      // Simple demo interactions: click icons to show an alert (replace with real actions)
+      document.addEventListener('DOMContentLoaded', ()=>{
+        document.querySelectorAll('.task-btn').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            const name = btn.getAttribute('data-app') || 'App';
+            alert(name + ' clicked! (replace with real action)');
+          })
+        })
+      })
+    </script>
 </head>
 <body>
   <h1 class="normal">Test</h1>
-    <div class="sidebar-taskbar"></div>
+    <div class="sidebar-taskbar" aria-label="Taskbar">
+      <div class="sidebar-inner">
+        <button class="task-btn" data-app="Browser" title="Browser">
+          <img src="png/icon.png" alt="Browser icon">
+        </button>
+
+        <button class="task-btn" data-app="Files" title="Files">
+          <img src="png/icon.png" alt="Files icon">
+          <span class="badge" aria-hidden="true"></span>
+        </button>
+
+        <button class="task-btn" data-app="Settings" title="Settings">
+          <img src="png/icon.png" alt="Settings icon">
+        </button>
+
+        <!-- Add more icons by copying a .task-btn and changing data-app/title/src -->
+      </div>
+    </div>
 
 </body>
 </html>
