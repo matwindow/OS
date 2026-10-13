@@ -27,6 +27,27 @@
     font-variant: normal;
     text-transform: capitalize;
       }
+        .sidebar-taskbar {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    
+    width: 75px;
+    height: 80vh;
+    
+    background: rgba(15, 15, 25, 0.35);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    
+    box-sizing: border-box;
+    z-index: 9999;
+}
+
       body {
             background-image: url('jpg/bg.jpg'); 
             background-repeat: no-repeat; 
@@ -41,5 +62,7 @@
 </head>
 <body>
   <h1 class="normal">Test</h1>
+    <div class="sidebar-taskbar"></div>
+
 </body>
 </html>
