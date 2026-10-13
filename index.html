@@ -107,7 +107,6 @@
         border: 2px solid rgba(255,255,255,0.08);
       }
 
-      /* Window - glass style, multiple instances supported */
       .demo-window {
         position: fixed;
         left: 90px;
@@ -137,21 +136,41 @@
       .demo-window.hidden { display: none; }
 
       .demo-window .titlebar {
+        position: relative;
         height: 44px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 12px;
         padding: 6px 10px;
-        background: rgba(6,6,8,0.6);
+        background: rgba(6,6,8,0.62);
         cursor: grab;
         -webkit-user-drag: none;
       }
       .demo-window.dragging .titlebar { cursor: grabbing; }
 
-      .title-left { display:flex; align-items:center; gap:10px; padding-left:8px; }
-      .title-left .dot { width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,0.08); }
+      .title-text {
+        position: absolute;
+        right: 90px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 14px;
+        font-weight: 700;
+        color: #f1f5ff;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      }
 
-      .window-controls { display:flex; gap:8px; align-items:center; padding-right:6px; }
+      .window-controls {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
 
       .control-btn {
         width: 28px;
@@ -162,6 +181,7 @@
         position: relative;
         cursor: pointer;
         display:flex; align-items:center; justify-content:center;
+        padding: 0;
       }
 
       .control-btn svg { width:14px; height:14px; fill:#fff; opacity:0.9 }
@@ -182,7 +202,6 @@
 
       .glass-top { position:absolute; left:0; right:0; top:0; height:160px; background: rgba(47,91,217,0.16); backdrop-filter: blur(8px); }
 
-      /* resize handle */
       .resizer {
         position: absolute;
         width: 14px;
@@ -195,7 +214,6 @@
         background: rgba(255,255,255,0.04);
         border: 1px solid rgba(255,255,255,0.06);
       }
-
     </style>
     <script>
       const STORAGE_KEY = 'matos_taskbar_icons_v1';
@@ -255,7 +273,6 @@
         const action = (item && item.action) || '';
         if (action.startsWith('/open ')) {
           const name = action.slice(6) || 'App';
-          // create a new window instance each time so multiple apps can be opened
           createAppWindow(name);
           if (item.notify) {
             const icons = loadIcons();
@@ -268,7 +285,6 @@
         alert('Action: ' + action);
       }
 
-      // load a .window file for the app and parse it into a JS object
       async function loadWindowConfig(name){
         const paths = [
           `./system/apps/${name}.window`,
@@ -282,25 +298,19 @@
             if (!res.ok) continue;
             text = await res.text();
             break;
-          } catch(e){ /* try next */ }
+          } catch(e){}
         }
         if (!text) return null;
 
-        // strip common fence markers (---, ___, ```)
         text = text.replace(/^\s*(```|---+|___+)\s*/i, '');
         text = text.replace(/\s*(```|---+|___+)\s*$/i, '');
 
-        // some .window files may be written as a list of top-level properties without outer braces
         let jsText = text.trim();
         if (!jsText.startsWith('{')) jsText = '{' + jsText + '}';
 
-        // Evaluate the JS-ish object. This can run functions (arrow functions) if present.
-        // WARNING: this executes repository code in the browser. Only do this for trusted apps.
         try {
-          // Use Function constructor to evaluate in global scope safely enough for this use-case
           const fn = new Function('return (' + jsText + ');');
-          const obj = fn();
-          return obj;
+          return fn();
         } catch (e){
           console.error('Failed to parse .window for', name, e);
           return null;
@@ -313,10 +323,9 @@
         win.className = 'demo-window';
         win.setAttribute('data-win-id', id);
 
-        // default content while loading config
         win.innerHTML = `
           <div class="titlebar">
-            <div class="title-left"><div class="dot"></div></div>
+            <span class="title-text">${escapeHtml(name)}</span>
             <div class="window-controls">
               <button class="control-btn minimize" title="Minimize"> <svg viewBox="0 0 24 24"><rect x="4" y="14" width="16" height="2" rx="1"/></svg></button>
               <button class="control-btn maximize" title="Maximize"> <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg></button>
@@ -326,7 +335,6 @@
           <div class="body">
             <div class="glass-top"></div>
             <div class="window-content">
-              <h2 class="window-title">${escapeHtml(name)}</h2>
               <p class="window-text">Loading...</p>
             </div>
             <div class="resizer" aria-hidden="true"></div>
@@ -340,19 +348,18 @@
         const minBtn = win.querySelector('.control-btn.minimize');
         const maxBtn = win.querySelector('.control-btn.maximize');
         const titlebar = win.querySelector('.titlebar');
+        const titleText = win.querySelector('.title-text');
         const resizer = win.querySelector('.resizer');
 
         closeBtn.addEventListener('click', () => win.remove());
         minBtn.addEventListener('click', () => win.classList.add('hidden'));
         maxBtn.addEventListener('click', () => win.classList.toggle('maximized'));
 
-        // bring to front when clicked
         win.addEventListener('mousedown', () => bringToFront(win));
 
-        // drag
         let dragging = false, offsetX = 0, offsetY = 0;
         titlebar.addEventListener('mousedown', (e) => {
-          if (e.target.closest('.control-btn')) return; // ignore clicks on controls
+          if (e.target.closest('.control-btn')) return;
           dragging = true; win.classList.add('dragging');
           const rect = win.getBoundingClientRect();
           offsetX = e.clientX - rect.left; offsetY = e.clientY - rect.top;
@@ -367,7 +374,6 @@
         });
         document.addEventListener('mouseup', () => { if (dragging) { dragging = false; win.classList.remove('dragging'); } });
 
-        // resize
         let resizing = false, startW = 0, startH = 0, startX = 0, startY = 0;
         resizer.addEventListener('mousedown', (e) => {
           e.stopPropagation();
@@ -382,20 +388,16 @@
         });
         document.addEventListener('mouseup', () => { if (resizing) resizing = false; });
 
-        // double click titlebar to maximize/restore
         titlebar.addEventListener('dblclick', () => win.classList.toggle('maximized'));
 
-        // load and apply .window config
         const cfg = await loadWindowConfig(name);
         if (cfg){
-          // map controls (note: keys may be spelled differently in different apps)
           const controls = {
             close: cfg.Close || cfg.CloseButton || cfg.CloseBtn || {},
             maximize: cfg.Maximalize || cfg.Maximize || cfg.Maximalise || {},
             minimize: cfg.Minimalize || cfg.Minimize || cfg.Minimise || {}
           };
 
-          // show/hide controls
           if (controls.close && controls.close.show === false){ closeBtn.remove(); }
           else if (controls.close && controls.close.enabled === false){ closeBtn.disabled = true; }
 
@@ -405,22 +407,14 @@
           if (controls.minimize && controls.minimize.show === false){ minBtn.remove(); }
           else if (controls.minimize && controls.minimize.enabled === false){ minBtn.disabled = true; }
 
-          // apply style
           const style = cfg.Style || cfg.style || {};
-          if (style.title) {
-            const t = win.querySelector('.window-title'); if (t) t.textContent = style.title;
-          }
-
-          if (style.titlebar && style.titlebar.color && style.titlebar.color !== 'defalut' && style.titlebar.color !== 'default'){
+          if (style.title) { if (titleText) titleText.textContent = style.title; }
+          if (style.titlebar && style.titlebar.color && style.titlebar.color !== 'default'){
             win.querySelector('.titlebar').style.background = style.titlebar.color;
           }
-
-          if (style.maincolor && style.maincolor !== 'defalut' && style.maincolor !== 'default'){
-            win.querySelector('.body').style.background = style.maincolor;
-          }
+          if (style.maincolor && style.maincolor !== 'default'){ win.querySelector('.body').style.background = style.maincolor; }
 
           if (style.blur){
-            // convert blur value to px when percent given (e.g. 50% -> ~5px)
             let b = String(style.blur);
             let px = '8px';
             if (b.endsWith('px')) px = b;
@@ -430,28 +424,12 @@
             win.style.webkitBackdropFilter = `blur(${px}) saturate(120%)`;
           }
 
-          // width/height defaults
           if (cfg.width) win.style.width = (typeof cfg.width === 'number' ? cfg.width + 'px' : cfg.width);
           if (cfg.height) win.style.height = (typeof cfg.height === 'number' ? cfg.height + 'px' : cfg.height);
 
-          // run onOpen if it's a function
-          try {
-            const onOpen = cfg.OnOpen || cfg.onOpen || cfg.onopen || cfg.Onopen;
-            if (typeof onOpen === 'function') {
-              // call with the window element as context
-              onOpen.call(null, win);
-            }
-          } catch(e){ console.error('onOpen error for', name, e); }
-
-          // replace content if app provides HTML or a renderer
-          if (cfg.render && typeof cfg.render === 'function'){
-            try { cfg.render(win.querySelector('.window-content')) } catch(e){ console.error('render error', e); }
-          }
-
-          const textEl = win.querySelector('.window-text');
-          if (textEl && style.title) textEl.textContent = '';
+          const onOpen = cfg.OnOpen || cfg.onOpen || cfg.onopen || cfg.Onopen;
+          if (typeof onOpen === 'function') { onOpen.call(null, win); }
         }
-
       }
 
       function escapeHtml(str) { return String(str).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[char])); }
