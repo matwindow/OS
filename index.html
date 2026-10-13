@@ -21,21 +21,15 @@
       body {
         margin:0;
         min-height:100vh;
-        background:#d7d7d7;
+        /* restored background image */
+        background-image: url('jpg/bg.jpg');
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: cover;
+        background-attachment: fixed;
         font-family: Tahoma, Geneva, sans-serif;
         overflow:hidden;
       }
-
-      .page-label{
-        position: absolute;
-        font-size: 24px;
-        font-weight: 700;
-        color: #111;
-        letter-spacing: 0.5px;
-        user-select:none;
-      }
-      .page-label.left{ left: 32px; top: 18px; }
-      .page-label.right{ left: 540px; top: 18px; }
 
       .window {
         position: absolute;
@@ -320,8 +314,6 @@
     </script>
 </head>
 <body>
-  <div class="page-label left">Movable Window</div>
-  <div class="page-label right">Blurry</div>
 
   <div class="window" aria-label="Movable demo window">
     <div class="titlebar">
