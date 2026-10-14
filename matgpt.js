@@ -1,14 +1,11 @@
 // matgpt.js
-// Improved MatGPT helper with better responses and smarter math parsing
-// Adds optional remote AI integration via user-supplied API key (stored in localStorage).
+// Improved MatGPT helper with smarter local logic and a secure proxy path for real AI.
 (function(){
   const HISTORY_KEY = 'matgpt_history_v1';
-  const API_KEY_KEY = 'matgpt_api_key_v1';
   const API_URL_KEY = 'matgpt_api_url_v1';
 
   function safeEvaluate(expr){
     if (typeof expr !== 'string') return null;
-    // allow ^ for exponent, convert to **; remove disallowed chars
     let cleaned = expr.replace(/\^/g, '**');
     cleaned = String(cleaned).replace(/[^0-9+\-*/().%\s\*\*]/g,'');
     if (!cleaned.trim()) return null;
@@ -32,29 +29,24 @@
     if (!text) return choose(['I didn\'t get anything — could you type your question?','Say something and I\'ll try to help.']);
     const low = text.toLowerCase();
 
-    // Greetings
     if (/^\s*(hi|hello|hey|yo)\b/.test(low)) return choose([
       'Hello! I\'m MatGPT — your local browser assistant. How can I help today?',
       'Hi there! MatGPT at your service. Ask me for time, math, text transforms, or to open apps.'
     ]);
 
-    if (low.includes('who are you') || low.includes('your name')) return 'I\'m MatGPT, a small local assistant embedded in this browser OS. I can do quick tasks without sending data anywhere unless you enable a remote AI key.';
+    if (low.includes('who are you') || low.includes('your name')) return 'I\'m MatGPT, a small local assistant embedded in this browser OS. I can do quick tasks without sending data anywhere unless you point me to a proxy.';
 
-    // Time & Date
     if (low.includes('time')) return 'Current time: ' + new Date().toLocaleTimeString();
     if (low.includes('date')) return 'Today is ' + new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    // Help / Capabilities
     if (low.includes('what can') || low.includes('what do you do') || low.includes('capab')){
-      return 'I can help with quick calculations, basic text transforms (uppercase/lowercase/reverse), opening local apps (Browser, Settings, Files), and saving a short chat history locally. If you want broader knowledge, add an OpenAI-compatible API key in the MatGPT app settings and I can proxy your queries to a hosted model.';
+      return 'I can help with quick calculations, basic text transforms, opening local apps, and saving short chat history locally. If you run a Copilot-compatible proxy server, I can answer broader questions through it.';
     }
 
-    // Open apps
     if (low.includes('open browser')) { if (window.createAppWindow) window.createAppWindow('Browser'); return 'Opening Browser...'; }
     if (low.includes('open settings')) { if (window.createAppWindow) window.createAppWindow('Settings'); return 'Opening Settings...'; }
     if (low.includes('open files')) { if (window.createAppWindow) window.createAppWindow('Files'); return 'Opening Files...'; }
 
-    // Text transforms
     if (low.startsWith('uppercase') || low.includes('uppercase ')){
       const v = extractAfterKeyword(text, 'uppercase');
       return v ? v.toUpperCase() : 'Provide text after the word uppercase.';
@@ -68,7 +60,6 @@
       return v ? [...v].reverse().join('') : 'Provide text after the word reverse.';
     }
 
-    // Math parsing: try to extract an expression
     const mathMatch = text.match(/([-+*/^ ().0-9%]+)$/);
     const altMath = text.match(/(?:what is|what's|calculate|compute|result of|what's the result of)\s+(.+)$/i);
     let expr = null;
@@ -80,60 +71,42 @@
       if (val !== null) return 'Result: ' + val;
     }
 
-    // Random number
     const rand = low.match(/random(?: number)?\s*(\d+)/i);
     if (rand){ const limit = parseInt(rand[1],10) || 10; return 'Random number: ' + (Math.floor(Math.random()*limit)+1); }
 
-    // Small talk
     if (low.includes('thank')) return choose(['You\'re welcome!','No problem — happy to help.']);
     if (low.includes('bye') || low.includes('goodbye')) return choose(['Goodbye!','See you later!']);
 
-    // Fallback more helpful
-    return 'I\'m a local assistant: I can do quick math, text transforms, and open apps. If you need more knowledge, add a remote API key in MatGPT settings so I can query a hosted model.';
+    return 'I\'m a local assistant: I can do quick math, text transforms, and open apps. If you connect a Copilot-compatible proxy at http://localhost:3000/api/copilot, I can answer broader questions too.';
   }
 
-  // Remote AI integration
   async function remoteAnswer(prompt, opts){
-    const key = localStorage.getItem(API_KEY_KEY);
-    if (!key) return null; // caller should fallback to local
-    const apiUrl = localStorage.getItem(API_URL_KEY) || 'https://api.openai.com/v1/chat/completions';
-    const model = (opts && opts.model) || 'gpt-3.5-turbo';
-
-    const systemPrompt = (opts && opts.system) || 'You are MatGPT, a helpful assistant embedded in a browser-based OS. Keep answers concise when appropriate.';
-
+    const apiUrl = localStorage.getItem(API_URL_KEY) || 'http://localhost:3000/api/copilot';
     try {
-      const body = {
-        model: model,
-        messages: [
-          {role: 'system', content: systemPrompt},
-          {role: 'user', content: prompt}
-        ],
-        temperature: 0.5,
-        max_tokens: 800
+      const payload = {
+        prompt: String(prompt || '').trim(),
+        model: (opts && opts.model) || 'copilot',
+        system: (opts && opts.system) || 'You are MatGPT, a helpful assistant embedded in a browser OS. Keep answers concise when possible.'
       };
 
       const res = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + key
-        },
-        body: JSON.stringify(body)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
-      if (!res.ok){
+      if (!res.ok) {
         const txt = await res.text();
-        throw new Error('Remote API error: ' + res.status + ' ' + txt.slice(0,200));
+        throw new Error('Remote proxy error: ' + res.status + ' ' + txt.slice(0,200));
       }
       const json = await res.json();
-      // OpenAI style
-      if (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content){
+      if (json && json.answer) return String(json.answer).trim();
+      if (json && json.content) return String(json.content).trim();
+      if (json && json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) {
         return String(json.choices[0].message.content).trim();
       }
-      // other providers might use text
-      if (json.answer) return String(json.answer).trim();
       return null;
-    } catch (e){
+    } catch (e) {
       console.error('remoteAnswer error', e);
       return null;
     }
@@ -145,9 +118,13 @@
   function appendHistory(role, text){ const list = loadHistory(); list.push({role, text, ts: Date.now()}); saveHistory(list); }
   function clearHistory(){ try{ localStorage.removeItem(HISTORY_KEY); }catch(e){} }
 
-  function setApiKey(key){ try{ if (!key) localStorage.removeItem(API_KEY_KEY); else localStorage.setItem(API_KEY_KEY, key); return true;}catch(e){return false;} }
-  function getApiKey(){ return localStorage.getItem(API_KEY_KEY) || null; }
-  function clearApiKey(){ localStorage.removeItem(API_KEY_KEY); }
+  function setApiUrl(url){
+    const value = String(url || '').trim();
+    if (!value) { localStorage.removeItem(API_URL_KEY); return true; }
+    localStorage.setItem(API_URL_KEY, value);
+    return true;
+  }
+  function getApiUrl(){ return localStorage.getItem(API_URL_KEY) || 'http://localhost:3000/api/copilot'; }
 
   window.matgpt = {
     answer,
@@ -157,10 +134,9 @@
     saveHistory,
     appendHistory,
     clearHistory,
-    setApiKey,
-    getApiKey,
-    clearApiKey,
+    setApiUrl,
+    getApiUrl,
     HISTORY_KEY,
-    API_KEY_KEY
+    API_URL_KEY
   };
 })();

@@ -1,0 +1,183 @@
+___
+Close:{
+  enabled:true,
+  show:true,
+  onclick:()=>{}
+},
+Maximalize:{
+  enabled:true,
+  show:true,
+  onclick:()=>{}
+},
+Minimalize:{
+  enabled:true,
+  show:true,
+  onclick:()=>{}
+},
+OnOpen:(win)=>{
+  const input = win.querySelector('input');
+  if (input) setTimeout(() => input.focus(), 120);
+},
+Style:{
+  blur:"80%",
+  title:"MatGPT",
+  titlebar:{
+    color:"rgba(12,14,20,0.54)"
+  },
+  maincolor:"rgba(30,32,45,0.32)"
+},
+render:(root)=>{
+  try{
+    root.style.display = 'flex';
+    root.style.flexDirection = 'column';
+    root.style.height = '100%';
+    root.style.boxSizing = 'border-box';
+  }catch(e){}
+
+  function loadIcon(path, fallback){
+    const img = document.createElement('img');
+    img.src = path;
+    img.onerror = () => { img.src = fallback; };
+    img.style.width = '20px'; img.style.height = '20px'; img.style.objectFit = 'contain';
+    return img;
+  }
+
+  const shell = document.createElement('div');
+  shell.style.cssText = 'width:100%;display:flex;flex-direction:column;gap:12px;padding:12px;box-sizing:border-box;flex:1;min-height:0;color:#edf5ff;font-family:Tahoma, Geneva, sans-serif;';
+
+  const topbar = document.createElement('div');
+  topbar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;';
+
+  const title = document.createElement('div');
+  title.textContent = 'MatGPT';
+  title.style.cssText = 'font-size:18px;font-weight:700;letter-spacing:0.05em;color:#f4f7ff;text-shadow:0 0 18px rgba(110,150,255,0.45);';
+
+  const controls = document.createElement('div');
+  controls.style.cssText = 'display:flex;align-items:center;gap:8px;';
+
+  const fallback = 'png/icon.png';
+  const icNew = loadIcon('png/chatbot/newchat.png', fallback);
+  const icChats = loadIcon('png/chatbot/chats.png', fallback);
+  const icStop = loadIcon('png/chatbot/stoprepond.png', fallback);
+
+  const btnNew = document.createElement('button'); btnNew.title='New Chat'; btnNew.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;'; btnNew.appendChild(icNew);
+  const btnChats = document.createElement('button'); btnChats.title='Proxy URL'; btnChats.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;'; btnChats.appendChild(icChats);
+  const btnStop = document.createElement('button'); btnStop.title='Stop'; btnStop.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;'; btnStop.appendChild(icStop);
+
+  controls.appendChild(btnNew); controls.appendChild(btnChats); controls.appendChild(btnStop);
+
+  topbar.appendChild(title);
+  topbar.appendChild(controls);
+
+  const status = document.createElement('div');
+  status.textContent = 'online';
+  status.style.cssText = 'padding:4px 8px;border-radius:999px;background:rgba(48,223,125,0.12);border:1px solid rgba(48,223,125,0.35);color:#9ff8b8;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;';
+
+  topbar.appendChild(status);
+
+  const chat = document.createElement('div');
+  chat.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));scroll-behavior:smooth;';
+
+  function makeBubble(role, text){
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+    wrapper.dataset.role = role === 'assistant' ? 'assistant' : 'user';
+
+    const label = document.createElement('div');
+    label.textContent = role === 'user' ? 'You' : 'MatGPT';
+    label.style.cssText = role === 'user' ? 'font-size:11px;font-weight:700;color:#a7c8ff;letter-spacing:0.08em;text-transform:uppercase;' : 'font-size:11px;font-weight:700;color:#9df5d4;letter-spacing:0.08em;text-transform:uppercase;';
+
+    const bubble = document.createElement('div');
+    bubble.style.cssText = role === 'user' ? 'padding:10px 12px;border-radius:10px;background:rgba(107,136,255,0.06);border:1px solid rgba(142,168,255,0.08);color:#edf3ff;white-space:pre-wrap;max-width:100%;' : 'padding:10px 12px;border-radius:10px;background:rgba(26,214,170,0.04);border:1px solid rgba(70,238,188,0.06);color:#ecfffb;white-space:pre-wrap;max-width:100%;';
+    bubble.textContent = text;
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(bubble);
+    return wrapper;
+  }
+
+  function addMessage(role, text){
+    const node = makeBubble(role, text);
+    chat.appendChild(node);
+    requestAnimationFrame(()=>{ chat.scrollTop = chat.scrollHeight; });
+  }
+
+  function loadLocalHistory(){
+    try{
+      const raw = localStorage.getItem('matgpt_history_v1');
+      if (!raw) return [];
+      const items = JSON.parse(raw);
+      if (!Array.isArray(items)) return [];
+      for (const item of items){ if (!item || !item.text) continue; addMessage(item.role === 'assistant' ? 'assistant' : 'user', item.text); }
+      return items;
+    }catch(e){ console.warn('Failed to load MatGPT history', e); return []; }
+  }
+
+  function saveLocalHistory(role, text){
+    try{
+      const list = JSON.parse(localStorage.getItem('matgpt_history_v1') || '[]');
+      if (!Array.isArray(list)) return;
+      list.push({ role, text, ts: Date.now() });
+      localStorage.setItem('matgpt_history_v1', JSON.stringify(list));
+    }catch(e){ console.warn('Failed to save MatGPT history', e); }
+  }
+
+  function clearLocalHistory(){ try{ localStorage.removeItem('matgpt_history_v1'); chat.innerHTML = ''; addIntro(); }catch(e){} }
+
+  const form = document.createElement('form'); form.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  const input = document.createElement('input'); input.type='text'; input.placeholder='Ask MatGPT...'; input.autocomplete='off';
+  input.style.cssText='flex:1;height:44px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:#fff;font-size:14px;outline:none;';
+
+  const sendBtn = document.createElement('button'); sendBtn.type='submit'; sendBtn.title='Send'; sendBtn.style.cssText='height:44px;padding:0 12px;border:none;border-radius:12px;background:linear-gradient(90deg, rgba(78,115,255,0.92), rgba(38,216,255,0.88));color:#02120d;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;';
+  const sendImg = loadIcon('png/chatbot/send.png', 'png/icon.png'); sendImg.style.width='18px'; sendImg.style.height='18px'; sendBtn.appendChild(sendImg);
+
+  form.appendChild(input); form.appendChild(sendBtn);
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const prompt = input.value.trim();
+    if(!prompt) return;
+
+    addMessage('user', prompt);
+    saveLocalHistory('user', prompt);
+    input.value = '';
+
+    const proxyUrl = window.matgpt && typeof window.matgpt.getApiUrl === 'function' ? window.matgpt.getApiUrl() : 'http://localhost:3000/api/copilot';
+    const thinkingNode = makeBubble('assistant', 'MatGPT is thinking...');
+    chat.appendChild(thinkingNode);
+    requestAnimationFrame(()=>{ chat.scrollTop = chat.scrollHeight; });
+
+    try {
+      const remote = await window.matgpt.remoteAnswer(prompt, { model: 'copilot' });
+      thinkingNode.remove();
+      const response = remote || window.matgpt.answer(prompt);
+      addMessage('assistant', response);
+      saveLocalHistory('assistant', response);
+    } catch (err) {
+      thinkingNode.remove();
+      const response = window.matgpt.answer(prompt);
+      addMessage('assistant', response);
+      saveLocalHistory('assistant', response);
+    }
+  });
+
+  btnNew.addEventListener('click', ()=>{ clearLocalHistory(); });
+  btnStop.addEventListener('click', ()=>{ alert('No streaming in local mode.'); });
+  btnChats.addEventListener('click', ()=>{
+    const current = (window.matgpt && typeof window.matgpt.getApiUrl === 'function') ? window.matgpt.getApiUrl() : 'http://localhost:3000/api/copilot';
+    const url = prompt('Set the Copilot-compatible proxy URL. Example: http://localhost:3000/api/copilot', current);
+    if (url === null) return;
+    if (window.matgpt && typeof window.matgpt.setApiUrl === 'function') window.matgpt.setApiUrl(url);
+    alert('Proxy URL saved. MatGPT will use it when you send a message.');
+  });
+
+  function addIntro(){ const intro = document.createElement('div'); intro.style.cssText='padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.03);color:#dbeaff;'; intro.textContent='I am MatGPT — ask me for time, date, math, text transforms, or app actions. If you run a Copilot-compatible proxy at http://localhost:3000/api/copilot, I can use it.'; chat.appendChild(intro); }
+
+  shell.appendChild(topbar);
+  shell.appendChild(chat);
+  shell.appendChild(form);
+  root.appendChild(shell);
+
+  const existing = loadLocalHistory(); if (existing.length === 0) addIntro();
+}
+___
