@@ -32,6 +32,7 @@ render:(root)=>{
     root.style.flexDirection = 'column';
     root.style.height = '100%';
     root.style.boxSizing = 'border-box';
+    root.style.minHeight = '0';
   }catch(e){}
 
   function loadIcon(path, fallback){
@@ -42,7 +43,6 @@ render:(root)=>{
   }
 
   const shell = document.createElement('div');
-  // IMPORTANT: min-height:0 so flex children can shrink and internal scrolling works
   shell.style.cssText = 'position:relative;width:100%;height:100%;display:flex;flex-direction:column;gap:8px;box-sizing:border-box;min-height:0;color:#cfe8ff;font-family:Menlo, Monaco, monospace;';
 
   const bg = loadIcon('svg/apps/cmd.svg', 'png/icon.png');
@@ -59,7 +59,6 @@ render:(root)=>{
   shell.appendChild(bg);
 
   const term = document.createElement('div');
-  // term is a column with header + output; overflow hidden prevents double scrollbars
   term.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;overflow:hidden;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(8,10,12,0.88), rgba(6,8,10,0.96));box-shadow:inset 0 0 40px rgba(0,0,0,0.6);z-index:1;';
 
   const info = document.createElement('div');
@@ -68,14 +67,12 @@ render:(root)=>{
   term.appendChild(info);
 
   const output = document.createElement('div');
-  // output is the actual scrolling area
   output.classList.add('matgpt-cmd-output');
-  output.style.cssText = 'flex:1;min-height:0;overflow-y:auto;scrollbar-gutter:stable both-edges;-webkit-overflow-scrolling:touch;font-size:13px;line-height:1.4;white-space:pre-wrap;padding-right:12px;';
-  output.tabIndex = 0; // allow focus/scrolling via keyboard
+  output.style.cssText = 'flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable both-edges;-webkit-overflow-scrolling:touch;font-size:13px;line-height:1.4;white-space:pre-wrap;padding-right:12px;position:relative;z-index:2;';
+  output.tabIndex = 0;
   term.appendChild(output);
 
   const form = document.createElement('form');
-  // ensure form does not flex-grow and stays anchored beneath the term
   form.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:6px;flex:none;z-index:2;';
 
   const promptLabel = document.createElement('div');
@@ -86,7 +83,6 @@ render:(root)=>{
   input.type = 'text';
   input.placeholder = 'Type a command';
   input.autocomplete = 'off';
-  // min-width:0 prevents input from forcing layout overflow
   input.style.cssText = 'flex:1;min-width:0;height:36px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01);color:#fff;font-size:13px;outline:none;';
 
   const submit = document.createElement('button');
@@ -96,7 +92,6 @@ render:(root)=>{
 
   form.appendChild(promptLabel); form.appendChild(input); form.appendChild(submit);
 
-  // Virtual filesystem (localStorage) - keys simplified for neutral naming
   const FS_KEY = 'cmd_fs_v1';
   function loadFs(){ try{ const raw = localStorage.getItem(FS_KEY); if (!raw) return {}; const data = JSON.parse(raw); return typeof data === 'object' && data ? data : {}; }catch(e){ return {}; } }
   function saveFs(fs){ try{ localStorage.setItem(FS_KEY, JSON.stringify(fs)); }catch(e){} }
@@ -105,14 +100,12 @@ render:(root)=>{
   function deletePath(path){ const fs = loadFs(); path = normalizePath(path); if (fs[path]){ delete fs[path]; saveFs(fs); return true; } return false; }
   function readFile(path){ const fs = loadFs(); path = normalizePath(path); const node = fs[path]; if (!node) return null; if (node.type === 'file') return node.content; return null; }
 
-  // Window registry for /open /close
   const WINDOW_KEY = 'cmd_windows_v1';
   function loadWindows(){ try{ return JSON.parse(localStorage.getItem(WINDOW_KEY) || '[]'); }catch(e){ return []; } }
   function saveWindows(list){ try{ localStorage.setItem(WINDOW_KEY, JSON.stringify(list)); }catch(e){} }
   function openWindow(filepath){ const list = loadWindows(); const id = Date.now(); list.push({ id, path: filepath }); saveWindows(list); return id; }
   function closeWindow(id){ let list = loadWindows(); const n = list.filter(w => w.id !== id); saveWindows(n); return list.length !== n.length; }
 
-  // inject visible scrollbar CSS once
   if (!document.getElementById('matgpt-cmd-scroll-style')){
     const ss = document.createElement('style');
     ss.id = 'matgpt-cmd-scroll-style';
@@ -121,12 +114,11 @@ render:(root)=>{
       .matgpt-cmd-output::-webkit-scrollbar { width: 10px; }
       .matgpt-cmd-output::-webkit-scrollbar-track { background: transparent; }
       .matgpt-cmd-output::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
-      .matgpt-cmd-output:hover::-webkit-scrollbar-thumb{ background: rgba(255,255,255,0.12); }
+      .matgpt-cmd-output:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
     `;
     document.head.appendChild(ss);
   }
 
-  // output helpers and commands per plans/cmd.md
   function appendOut(lines){
     if (!lines) return;
     const atBottom = (output.scrollHeight - output.clientHeight - output.scrollTop) < 48;
@@ -160,7 +152,6 @@ render:(root)=>{
 
     appendOut('Unknown command. Type /help for a list of commands.'); }
 
-  // keyboard shortcuts and submit handling
   input.addEventListener('keydown', (e)=>{
     if (e.ctrlKey && e.key.toLowerCase() === 'l'){ e.preventDefault(); output.innerHTML = ''; }
     if (e.ctrlKey && e.key.toLowerCase() === 'c'){ e.preventDefault(); const last = output.lastElementChild; if (last) navigator.clipboard && navigator.clipboard.writeText(last.textContent || ''); }
@@ -169,7 +160,8 @@ render:(root)=>{
 
   form.addEventListener('submit', (e)=>{ e.preventDefault(); const val = input.value.trim(); if (!val) return; appendOut('> ' + val); runCmd(val); input.value = ''; });
 
-  // initial content and sample file
+  output.addEventListener('wheel', (e)=>{ e.stopPropagation(); }, { passive:true });
+
   appendOut(['Welcome to CMD!', 'Type /help for available commands.']);
   if (readFile('/readme.txt') === null){ writeFile('/readme.txt', 'This is a sample file created by CMD. Use /read /readme.txt to view it.'); }
 
