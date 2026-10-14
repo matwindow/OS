@@ -148,7 +148,6 @@
       }
       .demo-window.dragging .titlebar { cursor: grabbing; }
 
-      /* Title on the left corner */
       .title-text {
         font-size: 14px;
         font-weight: 700;
@@ -210,7 +209,6 @@
         border: 1px solid rgba(255,255,255,0.06);
       }
 
-      /* Missing .window file indicator */
       .file-missing {
         display: inline-block;
         color: #ff5c5c;
@@ -228,7 +226,7 @@
         { icon: 'png/icon.png', action: '/open Browser', title: 'Browser' },
         { icon: 'png/icon.png', action: '/open Files', title: 'Files', notify: true },
         { icon: 'png/icon.png', action: '/open Settings', title: 'Settings' },
-        { icon: 'png/icon.png', action: '/open GlassAssistant', title: 'Glass Assistant' }
+        { icon: 'png/icon.png', action: '/open GlassAssistant', title: 'MatGPT' }
       ];
 
       let zCounter = 20000;
@@ -425,7 +423,6 @@
           else if (controls.minimize && controls.minimize.enabled === false){ minBtn.disabled = true; }
 
           const style = cfg.Style || cfg.style || {};
-          // title: prefer explicit style.title, fall back to provided name
           if (style.title) { if (titleText) titleText.textContent = style.title; if (contentText) contentText.textContent = ''; }
           else { if (titleText) titleText.textContent = name; }
 
@@ -452,7 +449,6 @@
             try { onOpen.call(null, win); } catch(e){ console.error('onOpen error', e); }
           }
 
-          // if app provides render function, call it to populate main area
           if (typeof cfg.render === 'function'){
             try { cfg.render(win.querySelector('.window-main') || win.querySelector('.window-content')); }
             catch(e){ console.error('render error', e); }
@@ -468,6 +464,7 @@
         window.createAppWindow = createAppWindow;
       });
     </script>
+    <script src="matgpt.js" defer></script>
 </head>
 <body>
   <div class="sidebar-taskbar" aria-label="Taskbar">
