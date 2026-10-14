@@ -20,7 +20,7 @@ OnOpen:(win)=>{
 },
 Style:{
   blur:"100px",
-  title:"Cmd",
+  title:"CMD",
   titlebar:{
     color:"rgba(12,14,20,0.54)"
   },
@@ -57,15 +57,16 @@ render:(root)=>{
   shell.appendChild(bg);
 
   const term = document.createElement('div');
-  term.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;overflow:auto;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(8,10,12,0.88), rgba(6,8,10,0.96));box-shadow:inset 0 0 40px rgba(0,0,0,0.6);';
+  term.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;overflow:hidden;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(8,10,12,0.88), rgba(6,8,10,0.96));box-shadow:inset 0 0 40px rgba(0,0,0,0.6);';
 
   const info = document.createElement('div');
-  info.textContent = 'MatGPT CMD — type /help for commands';
+  info.textContent = 'CMD — type /help for commands';
   info.style.cssText = 'font-size:12px;color:rgba(200,230,255,0.8);';
   term.appendChild(info);
 
   const output = document.createElement('div');
-  output.style.cssText = 'flex:1;min-height:0;overflow:auto;font-size:13px;line-height:1.4;white-space:pre-wrap;';
+  output.style.cssText = 'flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:13px;line-height:1.4;white-space:pre-wrap;padding-right:6px;';
+  output.tabIndex = 0; // allow focus/scrolling via keyboard
   term.appendChild(output);
 
   const form = document.createElement('form');
@@ -77,7 +78,7 @@ render:(root)=>{
 
   const input = document.createElement('input');
   input.type = 'text';
-  input.placeholder = 'Type a command or message';
+  input.placeholder = 'Type a command';
   input.autocomplete = 'off';
   input.style.cssText = 'flex:1;height:36px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01);color:#fff;font-size:13px;outline:none;';
 
@@ -88,198 +89,71 @@ render:(root)=>{
 
   form.appendChild(promptLabel); form.appendChild(input); form.appendChild(submit);
 
-  const FS_KEY = 'matgpt_cmd_fs_v1';
-  function loadFs(){
-    try{
-      const raw = localStorage.getItem(FS_KEY);
-      if (!raw) return {};
-      const data = JSON.parse(raw);
-      return typeof data === 'object' && data ? data : {};
-    }catch(e){ return {}; }
-  }
-  function saveFs(fs){
-    try{ localStorage.setItem(FS_KEY, JSON.stringify(fs)); }catch(e){}
-  }
-  function normalizePath(p){
-    if (!p) return '/';
-    p = String(p);
-    if (!p.startsWith('/')) p = '/' + p;
-    return p.replace(/\\/g, '/').replace(/\\\\+/g, '/');
-  }
-  function writeFile(path, data){
-    const fs = loadFs();
-    path = normalizePath(path);
-    fs[path] = { type:'file', content:data };
-    saveFs(fs);
-  }
-  function deletePath(path){
-    const fs = loadFs();
-    path = normalizePath(path);
-    if (fs[path]){ delete fs[path]; saveFs(fs); return true; }
-    return false;
-  }
-  function readFile(path){
-    const fs = loadFs();
-    path = normalizePath(path);
-    const node = fs[path];
-    if (!node) return null;
-    if (node.type === 'file') return node.content;
-    return null;
-  }
+  // Virtual filesystem (localStorage) - keys simplified for neutral naming
+  const FS_KEY = 'cmd_fs_v1';
+  function loadFs(){ try{ const raw = localStorage.getItem(FS_KEY); if (!raw) return {}; const data = JSON.parse(raw); return typeof data === 'object' && data ? data : {}; }catch(e){ return {}; } }
+  function saveFs(fs){ try{ localStorage.setItem(FS_KEY, JSON.stringify(fs)); }catch(e){} }
+  function normalizePath(p){ if (!p) return '/'; p = String(p); if (!p.startsWith('/')) p = '/' + p; return p.replace(/\\/g, '/').replace(/\\\\+/g, '/'); }
+  function writeFile(path, data){ const fs = loadFs(); path = normalizePath(path); fs[path] = { type:'file', content:data }; saveFs(fs); }
+  function deletePath(path){ const fs = loadFs(); path = normalizePath(path); if (fs[path]){ delete fs[path]; saveFs(fs); return true; } return false; }
+  function readFile(path){ const fs = loadFs(); path = normalizePath(path); const node = fs[path]; if (!node) return null; if (node.type === 'file') return node.content; return null; }
 
-  const WINDOW_KEY = 'matgpt_cmd_windows_v1';
-  function loadWindows(){
-    try{ return JSON.parse(localStorage.getItem(WINDOW_KEY) || '[]'); }catch(e){ return []; }
-  }
-  function saveWindows(list){
-    try{ localStorage.setItem(WINDOW_KEY, JSON.stringify(list)); }catch(e){}
-  }
-  function openWindow(filepath){
-    const list = loadWindows();
-    const id = Date.now();
-    list.push({ id, path: filepath });
-    saveWindows(list);
-    return id;
-  }
-  function closeWindow(id){
-    let list = loadWindows();
-    const n = list.filter(w => w.id !== id);
-    saveWindows(n);
-    return list.length !== n.length;
-  }
+  // Window registry for /open /close
+  const WINDOW_KEY = 'cmd_windows_v1';
+  function loadWindows(){ try{ return JSON.parse(localStorage.getItem(WINDOW_KEY) || '[]'); }catch(e){ return []; } }
+  function saveWindows(list){ try{ localStorage.setItem(WINDOW_KEY, JSON.stringify(list)); }catch(e){} }
+  function openWindow(filepath){ const list = loadWindows(); const id = Date.now(); list.push({ id, path: filepath }); saveWindows(list); return id; }
+  function closeWindow(id){ let list = loadWindows(); const n = list.filter(w => w.id !== id); saveWindows(n); return list.length !== n.length; }
 
+  // output helpers and commands per plans/cmd.md
   function appendOut(lines){
     if (!lines) return;
+    const atBottom = (output.scrollHeight - output.clientHeight - output.scrollTop) < 48;
     const t = typeof lines === 'string' ? lines : Array.isArray(lines) ? lines.join('\n') : String(lines);
     const node = document.createElement('div');
     node.textContent = t;
     node.style.cssText = 'padding:6px 8px;border-radius:6px;background:rgba(255,255,255,0.01);margin-bottom:6px;color:#d9f2ff;font-size:13px;';
     output.appendChild(node);
-    requestAnimationFrame(()=>{ output.scrollTop = output.scrollHeight; });
+    if (atBottom) requestAnimationFrame(()=>{ output.scrollTop = output.scrollHeight; });
   }
 
-  function runCmd(raw){
-    if (!raw) return;
-    const parts = raw.trim().split(/\s+/);
-    const cmd = parts[0];
-    const rest = raw.slice(cmd.length).trim();
+  function runCmd(raw){ if (!raw) return; const parts = raw.trim().split(/\s+/); const cmd = parts[0]; const rest = raw.slice(cmd.length).trim();
 
-    if (cmd === '/help' || cmd === '/h'){
-      appendOut([
-        'Commands:',
-        '/create <filepath> <data>   - create a file',
-        '/delete <filepath>          - delete a file',
-        '/edit <filepath> <data>     - overwrite a file',
-        '/read <filepath>            - read file content',
-        '/open <filepath>            - open a window (returns window id)',
-        '/close <windowid>           - close a window by id',
-        '/ls                         - list files',
-        '/clear                      - clear output',
-        '/help                       - show this help',
-      ]);
-      return;
-    }
+    if (cmd === '/help' || cmd === '/h'){ appendOut(['Commands:','/create <filepath> <data>   - create a file','/delete <filepath>          - delete a file','/edit <filepath> <data>     - overwrite a file','/read <filepath>            - read file content','/open <filepath>            - open a window (returns window id)','/close <windowid>           - close a window by id','/ls                         - list files','/clear                      - clear output','/help                       - show this help']); return; }
 
-    if (cmd === '/create'){
-      const m = rest.match(/^([^\s]+)\s+([\s\S]+)$/);
-      if (!m){ appendOut('Usage: /create <filepath> <data>'); return; }
-      const path = m[1];
-      const data = m[2];
-      if (readFile(path) !== null){ appendOut('Error: file exists'); return; }
-      writeFile(path, data);
-      appendOut(`Created ${path}`);
-      return;
-    }
+    if (cmd === '/create'){ const m = rest.match(/^([^\s]+)\s+([\s\S]+)$/); if (!m){ appendOut('Usage: /create <filepath> <data>'); return; } const path = m[1]; const data = m[2]; if (readFile(path) !== null){ appendOut('Error: file exists'); return; } writeFile(path, data); appendOut(`Created ${path}`); return; }
 
-    if (cmd === '/delete'){
-      const m = rest.match(/^([^\s]+)$/);
-      if (!m){ appendOut('Usage: /delete <filepath>'); return; }
-      const path = m[1];
-      const ok = deletePath(path);
-      appendOut(ok ? `Deleted ${path}` : `Not found: ${path}`);
-      return;
-    }
+    if (cmd === '/delete'){ const m = rest.match(/^([^\s]+)$/); if (!m){ appendOut('Usage: /delete <filepath>'); return; } const path = m[1]; const ok = deletePath(path); appendOut(ok ? `Deleted ${path}` : `Not found: ${path}`); return; }
 
-    if (cmd === '/edit'){
-      const m = rest.match(/^([^\s]+)\s+([\s\S]+)$/);
-      if (!m){ appendOut('Usage: /edit <filepath> <data>'); return; }
-      const path = m[1];
-      const data = m[2];
-      if (readFile(path) === null){ appendOut('Error: file does not exist'); return; }
-      writeFile(path, data);
-      appendOut(`Edited ${path}`);
-      return;
-    }
+    if (cmd === '/edit'){ const m = rest.match(/^([^\s]+)\s+([\s\S]+)$/); if (!m){ appendOut('Usage: /edit <filepath> <data>'); return; } const path = m[1]; const data = m[2]; if (readFile(path) === null){ appendOut('Error: file does not exist'); return; } writeFile(path, data); appendOut(`Edited ${path}`); return; }
 
-    if (cmd === '/read'){
-      const m = rest.match(/^([^\s]+)$/);
-      if (!m){ appendOut('Usage: /read <filepath>'); return; }
-      const path = m[1];
-      const data = readFile(path);
-      if (data === null) appendOut(`Not found: ${path}`); else appendOut(`--- ${path} ---\n${data}`);
-      return;
-    }
+    if (cmd === '/read'){ const m = rest.match(/^([^\s]+)$/); if (!m){ appendOut('Usage: /read <filepath>'); return; } const path = m[1]; const data = readFile(path); if (data === null) appendOut(`Not found: ${path}`); else appendOut(`--- ${path} ---\n${data}`); return; }
 
-    if (cmd === '/open'){
-      const m = rest.match(/^([^\s]+)$/);
-      if (!m){ appendOut('Usage: /open <filepath>'); return; }
-      const path = m[1];
-      const id = openWindow(path);
-      appendOut(`Opened ${path} as window ${id}`);
-      return;
-    }
+    if (cmd === '/open'){ const m = rest.match(/^([^\s]+)$/); if (!m){ appendOut('Usage: /open <filepath>'); return; } const path = m[1]; const id = openWindow(path); appendOut(`Opened ${path} as window ${id}`); return; }
 
-    if (cmd === '/close'){
-      const m = rest.match(/^(\d+)$/);
-      if (!m){ appendOut('Usage: /close <windowid>'); return; }
-      const id = Number(m[1]);
-      const ok = closeWindow(id);
-      appendOut(ok ? `Closed window ${id}` : `Window not found: ${id}`);
-      return;
-    }
+    if (cmd === '/close'){ const m = rest.match(/^(\d+)$/); if (!m){ appendOut('Usage: /close <windowid>'); return; } const id = Number(m[1]); const ok = closeWindow(id); appendOut(ok ? `Closed window ${id}` : `Window not found: ${id}`); return; }
 
-    if (cmd === '/ls'){
-      const fs = loadFs();
-      const keys = Object.keys(fs);
-      if (keys.length === 0) appendOut('(no files)'); else appendOut(keys.join('\n'));
-      return;
-    }
+    if (cmd === '/ls'){ const fs = loadFs(); const keys = Object.keys(fs); if (keys.length === 0) appendOut('(no files)'); else appendOut(keys.join('\n')); return; }
 
-    if (cmd === '/clear'){
-      output.innerHTML = '';
-      return;
-    }
+    if (cmd === '/clear'){ output.innerHTML = ''; return; }
 
-    appendOut('Unknown command. Type /help for a list of commands.');
-  }
+    appendOut('Unknown command. Type /help for a list of commands.'); }
 
+  // keyboard shortcuts and submit handling
   input.addEventListener('keydown', (e)=>{
-    if (e.ctrlKey && e.key.toLowerCase() === 'l'){
-      e.preventDefault(); output.innerHTML = '';
-    }
-    if (e.ctrlKey && e.key.toLowerCase() === 'c'){
-      e.preventDefault();
-      const last = output.lastElementChild;
-      if (last) navigator.clipboard && navigator.clipboard.writeText(last.textContent || '');
-    }
+    if (e.ctrlKey && e.key.toLowerCase() === 'l'){ e.preventDefault(); output.innerHTML = ''; }
+    if (e.ctrlKey && e.key.toLowerCase() === 'c'){ e.preventDefault(); const last = output.lastElementChild; if (last) navigator.clipboard && navigator.clipboard.writeText(last.textContent || ''); }
+    if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); form.dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })); }
   });
 
-  form.addEventListener('submit', (e)=>{
-    e.preventDefault();
-    const val = input.value.trim();
-    if (!val) return;
-    appendOut('> ' + val);
-    runCmd(val);
-    input.value = '';
-  });
+  form.addEventListener('submit', (e)=>{ e.preventDefault(); const val = input.value.trim(); if (!val) return; appendOut('> ' + val); runCmd(val); input.value = ''; });
 
-  appendOut(['Welcome to MatGPT CMD!', 'Type /help for available commands.']);
-  if (readFile('/readme.txt') === null){
-    writeFile('/readme.txt', 'This is a sample file created by CMD. Use /read /readme.txt to view it.');
-  }
+  // initial content and sample file
+  appendOut(['Welcome to CMD!', 'Type /help for available commands.']);
+  if (readFile('/readme.txt') === null){ writeFile('/readme.txt', 'This is a sample file created by CMD. Use /read /readme.txt to view it.'); }
 
   shell.appendChild(term);
   shell.appendChild(form);
   root.appendChild(shell);
-}
+},
 ___
