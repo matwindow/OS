@@ -5,7 +5,7 @@ show:true,
 onclick:()=>{}
 },
 Maximalize:{
-enabled:false,
+enabled:true,
 show:true,
 onclick:()=>{}
 },
