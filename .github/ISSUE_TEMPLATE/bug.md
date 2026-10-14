@@ -2,7 +2,7 @@
 name: Bug Report
 about: Use This If You Find A Bug!
 title: '[BUG] '
-labels: bug
+labels: Bug
 assignees: [matwindow]
 ---
  How Important?
