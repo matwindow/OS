@@ -42,7 +42,8 @@ render:(root)=>{
   }
 
   const shell = document.createElement('div');
-  shell.style.cssText = 'position:relative;width:100%;height:100%;display:flex;flex-direction:column;gap:8px;box-sizing:border-box;color:#cfe8ff;font-family:Menlo, Monaco, monospace;';
+  // IMPORTANT: min-height:0 so flex children can shrink and internal scrolling works
+  shell.style.cssText = 'position:relative;width:100%;height:100%;display:flex;flex-direction:column;gap:8px;box-sizing:border-box;min-height:0;color:#cfe8ff;font-family:Menlo, Monaco, monospace;';
 
   const bg = loadIcon('svg/apps/cmd.svg', 'png/icon.png');
   bg.style.position = 'absolute';
@@ -54,10 +55,12 @@ render:(root)=>{
   bg.style.filter = 'blur(100px)';
   bg.style.pointerEvents = 'none';
   bg.style.userSelect = 'none';
+  bg.style.zIndex = '0';
   shell.appendChild(bg);
 
   const term = document.createElement('div');
-  term.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;overflow:hidden;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(8,10,12,0.88), rgba(6,8,10,0.96));box-shadow:inset 0 0 40px rgba(0,0,0,0.6);';
+  // term is a column with header + output; overflow hidden prevents double scrollbars
+  term.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;overflow:hidden;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(8,10,12,0.88), rgba(6,8,10,0.96));box-shadow:inset 0 0 40px rgba(0,0,0,0.6);z-index:1;';
 
   const info = document.createElement('div');
   info.textContent = 'CMD — type /help for commands';
@@ -65,12 +68,15 @@ render:(root)=>{
   term.appendChild(info);
 
   const output = document.createElement('div');
-  output.style.cssText = 'flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:13px;line-height:1.4;white-space:pre-wrap;padding-right:6px;';
+  // output is the actual scrolling area
+  output.classList.add('matgpt-cmd-output');
+  output.style.cssText = 'flex:1;min-height:0;overflow-y:auto;scrollbar-gutter:stable both-edges;-webkit-overflow-scrolling:touch;font-size:13px;line-height:1.4;white-space:pre-wrap;padding-right:12px;';
   output.tabIndex = 0; // allow focus/scrolling via keyboard
   term.appendChild(output);
 
   const form = document.createElement('form');
-  form.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:6px;';
+  // ensure form does not flex-grow and stays anchored beneath the term
+  form.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:6px;flex:none;z-index:2;';
 
   const promptLabel = document.createElement('div');
   promptLabel.textContent = '>';
@@ -80,12 +86,13 @@ render:(root)=>{
   input.type = 'text';
   input.placeholder = 'Type a command';
   input.autocomplete = 'off';
-  input.style.cssText = 'flex:1;height:36px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01);color:#fff;font-size:13px;outline:none;';
+  // min-width:0 prevents input from forcing layout overflow
+  input.style.cssText = 'flex:1;min-width:0;height:36px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01);color:#fff;font-size:13px;outline:none;';
 
   const submit = document.createElement('button');
   submit.type = 'submit';
   submit.textContent = 'Run';
-  submit.style.cssText = 'height:36px;padding:0 12px;border-radius:6px;border:none;background:linear-gradient(180deg,rgba(80,120,255,0.12),rgba(60,90,200,0.08));color:#dff6ff;cursor:pointer;';
+  submit.style.cssText = 'height:36px;padding:0 12px;border-radius:6px;border:none;background:linear-gradient(180deg,rgba(80,120,255,0.12),rgba(60,90,200,0.08));color:#dff6ff;cursor:pointer;flex:none;';
 
   form.appendChild(promptLabel); form.appendChild(input); form.appendChild(submit);
 
@@ -104,6 +111,20 @@ render:(root)=>{
   function saveWindows(list){ try{ localStorage.setItem(WINDOW_KEY, JSON.stringify(list)); }catch(e){} }
   function openWindow(filepath){ const list = loadWindows(); const id = Date.now(); list.push({ id, path: filepath }); saveWindows(list); return id; }
   function closeWindow(id){ let list = loadWindows(); const n = list.filter(w => w.id !== id); saveWindows(n); return list.length !== n.length; }
+
+  // inject visible scrollbar CSS once
+  if (!document.getElementById('matgpt-cmd-scroll-style')){
+    const ss = document.createElement('style');
+    ss.id = 'matgpt-cmd-scroll-style';
+    ss.textContent = `
+      .matgpt-cmd-output { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent; }
+      .matgpt-cmd-output::-webkit-scrollbar { width: 10px; }
+      .matgpt-cmd-output::-webkit-scrollbar-track { background: transparent; }
+      .matgpt-cmd-output::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+      .matgpt-cmd-output:hover::-webkit-scrollbar-thumb{ background: rgba(255,255,255,0.12); }
+    `;
+    document.head.appendChild(ss);
+  }
 
   // output helpers and commands per plans/cmd.md
   function appendOut(lines){
