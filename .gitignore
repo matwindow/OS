@@ -1,6 +1,0 @@
-# Hides Temp Files
-*.temp
-
-# Hides Hidden Files
-*.hide
-hidden/
