@@ -2,7 +2,7 @@
 name: Feature Request
 about: Use This If You Want Us To Add Something!
 title: '[FEATURE] '
-labels: feature
+labels: Feature
 assignees: [matwindow]
 ---
  How Important?
