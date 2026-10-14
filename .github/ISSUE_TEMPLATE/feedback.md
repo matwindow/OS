@@ -2,7 +2,7 @@
 name: Feedback
 about: Give Us Feedback!
 title: '[FEEDBACK] '
-labels: feedback
+labels: Feedback
 assignees: [matwindow]
 ---
 # <!-- Title -->
