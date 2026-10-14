@@ -121,7 +121,6 @@ render:(root)=>{
   function addMessage(role, text){
     const node = makeBubble(role, text);
     chat.appendChild(node);
-    // ensure newest visible
     requestAnimationFrame(()=>{ chat.scrollTop = chat.scrollHeight; });
   }
 
@@ -156,7 +155,6 @@ render:(root)=>{
 
   form.appendChild(input); form.appendChild(sendBtn);
 
-  // copilot toggle state helper
   function setCopilotActive(active){
     try{
       if (active) {
@@ -177,76 +175,72 @@ render:(root)=>{
     }catch(e){}
   }
 
-  // initialize copilot button from storage
   (function(){
     const v = localStorage.getItem('matgpt_use_copilot') === '1';
     setCopilotActive(v);
   })();
 
   form.addEventListener('submit', async (e)=>{
-    e.preventDefault(); const prompt = input.value.trim(); if(!prompt) return; addMessage('user', prompt); saveLocalHistory('user', prompt); input.value='';
+    e.preventDefault();
+    const prompt = input.value.trim();
+    if(!prompt) return;
+    addMessage('user', prompt);
+    saveLocalHistory('user', prompt);
+    input.value='';
 
-    const useCopilot = localStorage.getItem('matgpt_use_copilot') === '1';
+    const thinkingNode = makeBubble('assistant', 'MatGPT is thinking...');
+    chat.appendChild(thinkingNode);
+    requestAnimationFrame(()=>{ chat.scrollTop = chat.scrollHeight; });
 
-    if (useCopilot && window.copilot && typeof window.copilot.answer === 'function'){
-      const thinkingNode = makeBubble('assistant', 'MatGPT (Copilot) is thinking...');
-      chat.appendChild(thinkingNode);
-      requestAnimationFrame(()=>{ chat.scrollTop = chat.scrollHeight; });
-      try{
-        const maybe = window.copilot.answer(prompt);
-        const response = (maybe && typeof maybe.then === 'function') ? await maybe : maybe;
+    try {
+      // Prefer saved API key if present (the normal OpenAI path)
+      const key = window.matgpt && typeof window.matgpt.getApiKey === 'function' ? window.matgpt.getApiKey() : '';
+      if (key) {
+        const response = await window.matgpt.remoteAnswer(prompt, { model: 'gpt-3.5-turbo' });
         thinkingNode.remove();
-        addMessage('assistant', response);
-        saveLocalHistory('assistant', response);
+        const finalText = response || window.matgpt.answer(prompt);
+        addMessage('assistant', finalText);
+        saveLocalHistory('assistant', finalText);
         return;
-      }catch(err){
-        thinkingNode.remove();
-        console.warn('Copilot bridge failed, falling back to MatGPT', err);
-        // fall through to normal remote/local handling
       }
-    }
 
-    // if API key configured prefer remote model
-    const hasKey = window.matgpt && typeof window.matgpt.getApiKey === 'function' && window.matgpt.getApiKey();
-    if (hasKey){
-      const thinkingNode = makeBubble('assistant', 'MatGPT is thinking...');
-      chat.appendChild(thinkingNode);
-      requestAnimationFrame(()=>{ chat.scrollTop = chat.scrollHeight; });
-      try{
-        const remote = await window.matgpt.remoteAnswer(prompt, { model: 'gpt-3.5-turbo' });
-        // remove thinking
+      const useCopilot = localStorage.getItem('matgpt_use_copilot') === '1';
+      if (useCopilot && window.copilot && typeof window.copilot.answer === 'function') {
+        const response = await window.copilot.answer(prompt);
         thinkingNode.remove();
-        const response = remote || window.matgpt.answer(prompt);
-        addMessage('assistant', response);
-        saveLocalHistory('assistant', response);
-      }catch(err){
-        thinkingNode.remove();
-        const fallback = window.matgpt.answer(prompt);
-        addMessage('assistant', fallback);
-        saveLocalHistory('assistant', fallback);
+        addMessage('assistant', response || window.matgpt.answer(prompt));
+        saveLocalHistory('assistant', response || window.matgpt.answer(prompt));
+        return;
       }
-    }else{
-      // local fallback
-      const response = window.matgpt.answer(prompt);
-      addMessage('assistant', response);
-      saveLocalHistory('assistant', response);
+
+      const fallback = window.matgpt.answer(prompt);
+      thinkingNode.remove();
+      addMessage('assistant', fallback);
+      saveLocalHistory('assistant', fallback);
+    } catch (err) {
+      console.warn('MatGPT remote call failed; using fallback', err);
+      thinkingNode.remove();
+      const fallback = window.matgpt.answer(prompt);
+      addMessage('assistant', fallback);
+      saveLocalHistory('assistant', fallback);
     }
   });
 
-  // new chat / stop / API-key / copilot handling
   btnNew.addEventListener('click', ()=>{ clearLocalHistory(); });
-  btnStop.addEventListener('click', ()=>{ /* no streaming implemented - placeholder */ alert('No streaming to stop in local mode.'); });
+  btnStop.addEventListener('click', ()=>{ alert('No streaming to stop in local mode.'); });
   btnChats.addEventListener('click', ()=>{
-    // prompt for API key (stored in localStorage). Warn user about local storage.
     const existing = window.matgpt && typeof window.matgpt.getApiKey === 'function' ? window.matgpt.getApiKey() : null;
-    let msg = 'Enter an OpenAI-compatible API key to enable remote MatGPT (stored locally in your browser). Leave blank to remove.';
+    let msg = 'Paste your OpenAI API key to enable real AI. Leave blank to disable.';
     if (existing) msg = 'An API key is already saved. Paste a new key to replace it, or leave blank to remove it.';
     const key = prompt(msg, existing || '');
-    if (key === null) return; // user cancelled
-    if (!key) { window.matgpt && window.matgpt.clearApiKey(); alert('API key removed. MatGPT will use local responses.'); return; }
-    // save
+    if (key === null) return;
+    if (!key) {
+      if (window.matgpt && typeof window.matgpt.clearApiKey === 'function') window.matgpt.clearApiKey();
+      alert('OpenAI key removed. MatGPT will use local responses.');
+      return;
+    }
     const ok = window.matgpt && typeof window.matgpt.setApiKey === 'function' ? window.matgpt.setApiKey(key.trim()) : false;
-    if (ok) alert('API key saved locally. Remote MatGPT enabled.'); else alert('Failed to save key in this browser.');
+    if (ok) alert('OpenAI key saved locally. Real AI flow enabled.'); else alert('Failed to save key in this browser.');
   });
 
   btnCopilot.addEventListener('click', ()=>{
@@ -254,7 +248,7 @@ render:(root)=>{
     const next = !cur;
     setCopilotActive(next);
     if (next){
-      alert('Copilot bridge enabled (will be used if window.copilot.answer is available).');
+      alert('Copilot bridge enabled (only used if a bridge exists).');
     } else {
       alert('Copilot bridge disabled.');
     }
@@ -263,7 +257,7 @@ render:(root)=>{
   function addIntro(){
     const intro = document.createElement('div');
     intro.style.cssText='padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02);color:#dfeaff;';
-    intro.textContent = 'Welcome to MatGPT. Type a question below and press Enter. Use the Copilot button to prefer a Copilot bridge if available.';
+    intro.textContent = 'Welcome to MatGPT. Type a question below and press Enter. If you saved an OpenAI key, MatGPT will use it before falling back to local mode.';
     chat.appendChild(intro);
   }
 
@@ -273,7 +267,6 @@ render:(root)=>{
   shell.appendChild(form);
   root.appendChild(shell);
 
-  // load and show history or intro
   const existing = loadLocalHistory(); if (existing.length === 0) addIntro();
 }
 ___
