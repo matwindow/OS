@@ -1,0 +1,82 @@
+___
+Close:{
+  enabled:true,
+  show:true,
+  onclick:()=>{}
+},
+Maximalize:{
+  enabled:true,
+  show:true,
+  onclick:()=>{}
+},
+Minimalize:{
+  enabled:true,
+  show:true,
+  onclick:()=>{}
+},
+OnOpen:()=>{},
+Style:{
+  blur:"22%",
+  title:"Glass Assistant",
+  titlebar:{
+    color:"rgba(12,14,20,0.6)"
+  },
+  maincolor:"rgba(255,255,255,0.02)",
+},
+render:(root)=>{
+  const c = document.createElement('div');
+  c.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;gap:12px;padding:18px;box-sizing:border-box;color:#eaf0ff;font-family:Tahoma,Segoe UI,system-ui;';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:12px;';
+  const title = document.createElement('div');
+  title.textContent = 'Glass Assistant';
+  title.style.cssText = 'font-size:18px;font-weight:700;color:#fff;text-shadow:0 6px 30px rgba(78,115,255,0.12);';
+  header.appendChild(title);
+
+  const panel = document.createElement('div');
+  panel.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:12px;';
+
+  const controls = document.createElement('div');
+  controls.style.cssText = 'display:flex;gap:8px;align-items:center;';
+
+  const input = document.createElement('input');
+  input.placeholder = 'Ask me anything...';
+  input.style.cssText = 'flex:1;height:48px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);backdrop-filter:blur(6px);padding:10px 12px;color:#fff;font-size:16px;';
+
+  const btn = document.createElement('button');
+  btn.textContent = 'Send';
+  btn.style.cssText = 'height:48px;padding:0 18px;border-radius:12px;border:none;background:linear-gradient(90deg, rgba(78,115,255,0.9), rgba(47,191,255,0.9));color:#041; font-weight:700;cursor:pointer;';
+
+  controls.appendChild(input);
+  controls.appendChild(btn);
+
+  const output = document.createElement('div');
+  output.style.cssText = 'overflow:auto;flex:1;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));';
+  output.innerHTML = '<div style="opacity:0.7">Awaiting input...</div>';
+
+  btn.addEventListener('click', ()=>{
+    const q = input.value.trim();
+    if(!q){ input.focus(); return; }
+    const item = document.createElement('div');
+    item.style.cssText = 'margin-bottom:10px;padding:12px;border-radius:8px;background:rgba(255,255,255,0.02);box-shadow:inset 0 0 18px rgba(47,91,217,0.04);';
+    const you = document.createElement('div'); you.style.cssText='color:#cfe0ff;margin-bottom:6px;font-weight:700'; you.textContent='You';
+    const qdiv = document.createElement('div'); qdiv.style.cssText='color:#eaf0ff'; qdiv.textContent = q;
+    const sep = document.createElement('hr'); sep.style.cssText='border:none;border-top:1px solid rgba(255,255,255,0.03);margin:8px 0';
+    const thinking = document.createElement('div'); thinking.style.cssText='color:#a9c2ff'; thinking.textContent='Thinking...';
+    item.appendChild(you); item.appendChild(qdiv); item.appendChild(sep); item.appendChild(thinking);
+    output.insertBefore(item, output.firstChild);
+    input.value='';
+
+    setTimeout(function(){
+      thinking.textContent = 'This is a local, sandboxed glass-style assistant UI — it does not call external APIs.';
+    }, 900);
+  });
+
+  panel.appendChild(controls);
+  panel.appendChild(output);
+  c.appendChild(header);
+  c.appendChild(panel);
+  root.appendChild(c);
+}
+___
