@@ -1,7 +1,10 @@
 // matgpt.js
 // Improved MatGPT helper with better responses and smarter math parsing
+// Adds optional remote AI integration via user-supplied API key (stored in localStorage).
 (function(){
   const HISTORY_KEY = 'matgpt_history_v1';
+  const API_KEY_KEY = 'matgpt_api_key_v1';
+  const API_URL_KEY = 'matgpt_api_url_v1';
 
   function safeEvaluate(expr){
     if (typeof expr !== 'string') return null;
@@ -35,7 +38,7 @@
       'Hi there! MatGPT at your service. Ask me for time, math, text transforms, or to open apps.'
     ]);
 
-    if (low.includes('who are you') || low.includes('your name')) return 'I\'m MatGPT, a small local assistant embedded in this browser OS. I can do quick tasks without sending data anywhere.';
+    if (low.includes('who are you') || low.includes('your name')) return 'I\'m MatGPT, a small local assistant embedded in this browser OS. I can do quick tasks without sending data anywhere unless you enable a remote AI key.';
 
     // Time & Date
     if (low.includes('time')) return 'Current time: ' + new Date().toLocaleTimeString();
@@ -43,7 +46,7 @@
 
     // Help / Capabilities
     if (low.includes('what can') || low.includes('what do you do') || low.includes('capab')){
-      return 'I can help with quick calculations, basic text transforms (uppercase/lowercase/reverse), opening local apps (Browser, Settings, Files), and saving a short chat history locally. Example prompts: "2+2", "Reverse hello", "Open Settings".';
+      return 'I can help with quick calculations, basic text transforms (uppercase/lowercase/reverse), opening local apps (Browser, Settings, Files), and saving a short chat history locally. If you want broader knowledge, add an OpenAI-compatible API key in the MatGPT app settings and I can proxy your queries to a hosted model.';
     }
 
     // Open apps
@@ -67,7 +70,6 @@
 
     // Math parsing: try to extract an expression
     const mathMatch = text.match(/([-+*/^ ().0-9%]+)$/);
-    // also handle phrases like "what is 2+2" or "what's 2^3"
     const altMath = text.match(/(?:what is|what's|calculate|compute|result of|what's the result of)\s+(.+)$/i);
     let expr = null;
     if (altMath && altMath[1]) expr = altMath[1];
@@ -87,26 +89,78 @@
     if (low.includes('bye') || low.includes('goodbye')) return choose(['Goodbye!','See you later!']);
 
     // Fallback more helpful
-    return 'I\'m a local assistant: I can do quick math, text transforms, and open apps. If you\'re looking for more advanced answers, try a clear instruction like "Calculate 12^2" or "Reverse hello".';
+    return 'I\'m a local assistant: I can do quick math, text transforms, and open apps. If you need more knowledge, add a remote API key in MatGPT settings so I can query a hosted model.';
+  }
+
+  // Remote AI integration
+  async function remoteAnswer(prompt, opts){
+    const key = localStorage.getItem(API_KEY_KEY);
+    if (!key) return null; // caller should fallback to local
+    const apiUrl = localStorage.getItem(API_URL_KEY) || 'https://api.openai.com/v1/chat/completions';
+    const model = (opts && opts.model) || 'gpt-3.5-turbo';
+
+    const systemPrompt = (opts && opts.system) || 'You are MatGPT, a helpful assistant embedded in a browser-based OS. Keep answers concise when appropriate.';
+
+    try {
+      const body = {
+        model: model,
+        messages: [
+          {role: 'system', content: systemPrompt},
+          {role: 'user', content: prompt}
+        ],
+        temperature: 0.5,
+        max_tokens: 800
+      };
+
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + key
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok){
+        const txt = await res.text();
+        throw new Error('Remote API error: ' + res.status + ' ' + txt.slice(0,200));
+      }
+      const json = await res.json();
+      // OpenAI style
+      if (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content){
+        return String(json.choices[0].message.content).trim();
+      }
+      // other providers might use text
+      if (json.answer) return String(json.answer).trim();
+      return null;
+    } catch (e){
+      console.error('remoteAnswer error', e);
+      return null;
+    }
   }
 
   function loadHistory(){
-    try{ const raw = localStorage.getItem(HISTORY_KEY); if (!raw) return []; const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : []; }catch(e){return [];}
-  }
-  function saveHistory(list){ try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }catch(e){}
-  }
-  function appendHistory(role, text){
-    const list = loadHistory(); list.push({role, text, ts: Date.now()}); saveHistory(list);
-  }
+    try{ const raw = localStorage.getItem(HISTORY_KEY); if (!raw) return []; const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : []; }catch(e){return [];} }
+  function saveHistory(list){ try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }catch(e){} }
+  function appendHistory(role, text){ const list = loadHistory(); list.push({role, text, ts: Date.now()}); saveHistory(list); }
   function clearHistory(){ try{ localStorage.removeItem(HISTORY_KEY); }catch(e){} }
+
+  function setApiKey(key){ try{ if (!key) localStorage.removeItem(API_KEY_KEY); else localStorage.setItem(API_KEY_KEY, key); return true;}catch(e){return false;} }
+  function getApiKey(){ return localStorage.getItem(API_KEY_KEY) || null; }
+  function clearApiKey(){ localStorage.removeItem(API_KEY_KEY); }
 
   window.matgpt = {
     answer,
     safeEvaluate,
+    remoteAnswer,
     loadHistory,
     saveHistory,
     appendHistory,
     clearHistory,
-    HISTORY_KEY
+    setApiKey,
+    getApiKey,
+    clearApiKey,
+    HISTORY_KEY,
+    API_KEY_KEY
   };
 })();

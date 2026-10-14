@@ -27,6 +27,14 @@ Style:{
   maincolor:"rgba(30,32,45,0.32)"
 },
 render:(root)=>{
+  // ensure root fills and acts as flex column so chat can scroll
+  try{
+    root.style.display = 'flex';
+    root.style.flexDirection = 'column';
+    root.style.height = '100%';
+    root.style.boxSizing = 'border-box';
+  }catch(e){}
+
   // helper to load an image with fallback
   function loadIcon(path, fallback){
     const img = document.createElement('img');
@@ -37,7 +45,7 @@ render:(root)=>{
   }
 
   const shell = document.createElement('div');
-  shell.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;gap:12px;padding:12px;box-sizing:border-box;color:#edf5ff;font-family:Tahoma, Geneva, sans-serif;';
+  shell.style.cssText = 'width:100%;display:flex;flex-direction:column;gap:12px;padding:12px;box-sizing:border-box;flex:1;min-height:0;color:#edf5ff;font-family:Tahoma, Geneva, sans-serif;';
 
   const topbar = document.createElement('div');
   topbar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;';
@@ -57,7 +65,7 @@ render:(root)=>{
   const icStop = loadIcon('png/chatbot/stoprepond.png', fallback);
 
   const btnNew = document.createElement('button'); btnNew.title='New Chat'; btnNew.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;'; btnNew.appendChild(icNew);
-  const btnChats = document.createElement('button'); btnChats.title='Chats'; btnChats.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;'; btnChats.appendChild(icChats);
+  const btnChats = document.createElement('button'); btnChats.title='API Key'; btnChats.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;'; btnChats.appendChild(icChats);
   const btnStop = document.createElement('button'); btnStop.title='Stop'; btnStop.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;'; btnStop.appendChild(icStop);
 
   controls.appendChild(btnNew); controls.appendChild(btnChats); controls.appendChild(btnStop);
@@ -72,7 +80,7 @@ render:(root)=>{
   topbar.appendChild(status);
 
   const chat = document.createElement('div');
-  chat.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));scroll-behavior:smooth;';
+  chat.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));scroll-behavior:smooth;';
 
   // message creation
   function makeBubble(role, text){
@@ -131,22 +139,53 @@ render:(root)=>{
 
   form.appendChild(input); form.appendChild(sendBtn);
 
-  form.addEventListener('submit', (e)=>{
+  form.addEventListener('submit', async (e)=>{
     e.preventDefault(); const prompt = input.value.trim(); if(!prompt) return; addMessage('user', prompt); saveLocalHistory('user', prompt); input.value='';
-    // use helper
-    setTimeout(()=>{
-      const helper = window.matgpt && typeof window.matgpt.answer === 'function' ? window.matgpt : null;
-      const response = helper ? helper.answer(prompt) : 'MatGPT helper is unavailable in this session.';
-      addMessage('assistant', response); saveLocalHistory('assistant', response);
-    }, 180);
+
+    // if API key configured prefer remote model
+    const hasKey = window.matgpt && typeof window.matgpt.getApiKey === 'function' && window.matgpt.getApiKey();
+    if (hasKey){
+      const thinkingNode = makeBubble('assistant', 'MatGPT is thinking...');
+      chat.appendChild(thinkingNode);
+      requestAnimationFrame(()=>{ chat.scrollTop = chat.scrollHeight; });
+      try{
+        const remote = await window.matgpt.remoteAnswer(prompt, { model: 'gpt-3.5-turbo' });
+        // remove thinking
+        thinkingNode.remove();
+        const response = remote || window.matgpt.answer(prompt);
+        addMessage('assistant', response);
+        saveLocalHistory('assistant', response);
+      }catch(err){
+        thinkingNode.remove();
+        const fallback = window.matgpt.answer(prompt);
+        addMessage('assistant', fallback);
+        saveLocalHistory('assistant', fallback);
+      }
+    }else{
+      // local fallback
+      const response = window.matgpt.answer(prompt);
+      addMessage('assistant', response);
+      saveLocalHistory('assistant', response);
+    }
   });
 
-  // new chat / stop stub
+  // new chat / stop / API-key handling
   btnNew.addEventListener('click', ()=>{ clearLocalHistory(); });
   btnStop.addEventListener('click', ()=>{ /* no streaming implemented - placeholder */ alert('No streaming to stop in local mode.'); });
-  btnChats.addEventListener('click', ()=>{ const raw = localStorage.getItem('matgpt_history_v1') || '[]'; alert('Saved messages: ' + JSON.parse(raw).length); });
+  btnChats.addEventListener('click', ()=>{
+    // prompt for API key (stored in localStorage). Warn user about local storage.
+    const existing = window.matgpt && typeof window.matgpt.getApiKey === 'function' ? window.matgpt.getApiKey() : null;
+    let msg = 'Enter an OpenAI-compatible API key to enable remote MatGPT (stored locally in your browser). Leave blank to remove.';
+    if (existing) msg = 'An API key is already saved. Paste a new key to replace it, or leave blank to remove it.';
+    const key = prompt(msg, existing || '');
+    if (key === null) return; // user cancelled
+    if (!key) { window.matgpt && window.matgpt.clearApiKey(); alert('API key removed. MatGPT will use local responses.'); return; }
+    // save
+    const ok = window.matgpt && typeof window.matgpt.setApiKey === 'function' ? window.matgpt.setApiKey(key.trim()) : false;
+    if (ok) alert('API key saved locally. Remote MatGPT enabled.'); else alert('Failed to save key in this browser.');
+  });
 
-  function addIntro(){ const intro = document.createElement('div'); intro.style.cssText='padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.03);color:#dbeaff;'; intro.textContent='I am MatGPT — ask me for time, date, math, text transforms, or app actions.'; chat.appendChild(intro); }
+  function addIntro(){ const intro = document.createElement('div'); intro.style.cssText='padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.03);color:#dbeaff;'; intro.textContent='I am MatGPT — ask me for time, date, math, text transforms, or app actions. To enable a remote AI, click the small chat icon and paste an API key.'; chat.appendChild(intro); }
 
   // compose UI
   shell.appendChild(topbar);
