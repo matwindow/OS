@@ -63,24 +63,41 @@ render:(root)=>{
   const icChats = loadIcon('png/chatbot/chats.png', fallback);
   const icSend = loadIcon('png/chatbot/send.png', fallback);
   const icStop = loadIcon('png/chatbot/stoprepond.png', fallback);
+  const icCopilot = loadIcon('png/chatbot/copilot.png', fallback);
 
-  const btnNew = document.createElement('button'); btnNew.title='New Chat'; btnNew.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;'; btnNew.appendChild(icNew);
-  const btnChats = document.createElement('button'); btnChats.title='API Key'; btnChats.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;'; btnChats.appendChild(icChats);
-  const btnStop = document.createElement('button'); btnStop.title='Stop'; btnStop.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;'; btnStop.appendChild(icStop);
+  const btnNew = document.createElement('button');
+  btnNew.title='New Chat';
+  btnNew.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;';
+  btnNew.appendChild(icNew);
 
-  controls.appendChild(btnNew); controls.appendChild(btnChats); controls.appendChild(btnStop);
+  const btnChats = document.createElement('button');
+  btnChats.title='API Key';
+  btnChats.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;';
+  btnChats.appendChild(icChats);
+
+  const btnStop = document.createElement('button');
+  btnStop.title='Stop';
+  btnStop.style.cssText='background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;';
+  btnStop.appendChild(icStop);
+
+  const btnCopilot = document.createElement('button');
+  btnCopilot.title = 'Use Copilot Bridge';
+  btnCopilot.style.cssText = 'background:transparent;border:none;cursor:pointer;padding:6px;border-radius:8px;opacity:0.7;';
+  btnCopilot.appendChild(icCopilot);
+
+  controls.appendChild(btnNew); controls.appendChild(btnChats); controls.appendChild(btnStop); controls.appendChild(btnCopilot);
 
   topbar.appendChild(title);
   topbar.appendChild(controls);
 
   const status = document.createElement('div');
   status.textContent = 'online';
-  status.style.cssText = 'padding:4px 8px;border-radius:999px;background:rgba(48,223,125,0.12);border:1px solid rgba(48,223,125,0.35);color:#9ff8b8;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;';
+  status.style.cssText = 'padding:4px 8px;border-radius:999px;background:rgba(48,223,125,0.12);border:1px solid rgba(48,223,125,0.35);color:#9ff8b8;font-size:11px;font-weight:700;letter-spacing:0.06em;';
 
   topbar.appendChild(status);
 
   const chat = document.createElement('div');
-  chat.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));scroll-behavior:smooth;';
+  chat.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));';
 
   // message creation
   function makeBubble(role, text){
@@ -93,7 +110,7 @@ render:(root)=>{
     label.style.cssText = role === 'user' ? 'font-size:11px;font-weight:700;color:#a7c8ff;letter-spacing:0.08em;text-transform:uppercase;' : 'font-size:11px;font-weight:700;color:#9df5d4;letter-spacing:0.08em;text-transform:uppercase;';
 
     const bubble = document.createElement('div');
-    bubble.style.cssText = role === 'user' ? 'padding:10px 12px;border-radius:10px;background:rgba(107,136,255,0.06);border:1px solid rgba(142,168,255,0.08);color:#edf3ff;white-space:pre-wrap;max-width:100%;' : 'padding:10px 12px;border-radius:10px;background:rgba(26,214,170,0.04);border:1px solid rgba(70,238,188,0.06);color:#ecfffb;white-space:pre-wrap;max-width:100%;';
+    bubble.style.cssText = role === 'user' ? 'padding:10px 12px;border-radius:10px;background:rgba(107,136,255,0.06);border:1px solid rgba(142,168,255,0.08);color:#edf3ff;white-space:pre-wrap;max-width:85%;' : 'padding:10px 12px;border-radius:10px;background:linear-gradient(180deg, rgba(25,28,40,0.6), rgba(20,22,34,0.6));border:1px solid rgba(255,255,255,0.02);color:#e9fff4;white-space:pre-wrap;max-width:85%;';
     bubble.textContent = text;
 
     wrapper.appendChild(label);
@@ -134,13 +151,60 @@ render:(root)=>{
   const input = document.createElement('input'); input.type='text'; input.placeholder='Ask MatGPT...'; input.autocomplete='off';
   input.style.cssText='flex:1;height:44px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:#fff;font-size:14px;outline:none;';
 
-  const sendBtn = document.createElement('button'); sendBtn.type='submit'; sendBtn.title='Send'; sendBtn.style.cssText='height:44px;padding:0 12px;border:none;border-radius:12px;background:linear-gradient(90deg, rgba(78,115,255,0.92), rgba(38,216,255,0.88));color:#02120d;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;';
+  const sendBtn = document.createElement('button'); sendBtn.type='submit'; sendBtn.title='Send'; sendBtn.style.cssText='height:44px;padding:0 12px;border:none;border-radius:12px;background:linear-gradient(180deg, rgba(90,120,255,1), rgba(70,100,235,1));cursor:pointer;display:flex;align-items:center;justify-content:center;';
   const sendImg = loadIcon('png/chatbot/send.png', 'png/icon.png'); sendImg.style.width='18px'; sendImg.style.height='18px'; sendBtn.appendChild(sendImg);
 
   form.appendChild(input); form.appendChild(sendBtn);
 
+  // copilot toggle state helper
+  function setCopilotActive(active){
+    try{
+      if (active) {
+        localStorage.setItem('matgpt_use_copilot', '1');
+        btnCopilot.style.opacity = '1';
+        status.textContent = 'Copilot';
+        status.style.background = 'rgba(110,150,255,0.08)';
+        status.style.border = '1px solid rgba(110,150,255,0.18)';
+        status.style.color = '#cfe4ff';
+      } else {
+        localStorage.removeItem('matgpt_use_copilot');
+        btnCopilot.style.opacity = '0.7';
+        status.textContent = 'online';
+        status.style.background = 'rgba(48,223,125,0.12)';
+        status.style.border = '1px solid rgba(48,223,125,0.35)';
+        status.style.color = '#9ff8b8';
+      }
+    }catch(e){}
+  }
+
+  // initialize copilot button from storage
+  (function(){
+    const v = localStorage.getItem('matgpt_use_copilot') === '1';
+    setCopilotActive(v);
+  })();
+
   form.addEventListener('submit', async (e)=>{
     e.preventDefault(); const prompt = input.value.trim(); if(!prompt) return; addMessage('user', prompt); saveLocalHistory('user', prompt); input.value='';
+
+    const useCopilot = localStorage.getItem('matgpt_use_copilot') === '1';
+
+    if (useCopilot && window.copilot && typeof window.copilot.answer === 'function'){
+      const thinkingNode = makeBubble('assistant', 'MatGPT (Copilot) is thinking...');
+      chat.appendChild(thinkingNode);
+      requestAnimationFrame(()=>{ chat.scrollTop = chat.scrollHeight; });
+      try{
+        const maybe = window.copilot.answer(prompt);
+        const response = (maybe && typeof maybe.then === 'function') ? await maybe : maybe;
+        thinkingNode.remove();
+        addMessage('assistant', response);
+        saveLocalHistory('assistant', response);
+        return;
+      }catch(err){
+        thinkingNode.remove();
+        console.warn('Copilot bridge failed, falling back to MatGPT', err);
+        // fall through to normal remote/local handling
+      }
+    }
 
     // if API key configured prefer remote model
     const hasKey = window.matgpt && typeof window.matgpt.getApiKey === 'function' && window.matgpt.getApiKey();
@@ -169,7 +233,7 @@ render:(root)=>{
     }
   });
 
-  // new chat / stop / API-key handling
+  // new chat / stop / API-key / copilot handling
   btnNew.addEventListener('click', ()=>{ clearLocalHistory(); });
   btnStop.addEventListener('click', ()=>{ /* no streaming implemented - placeholder */ alert('No streaming to stop in local mode.'); });
   btnChats.addEventListener('click', ()=>{
@@ -185,7 +249,23 @@ render:(root)=>{
     if (ok) alert('API key saved locally. Remote MatGPT enabled.'); else alert('Failed to save key in this browser.');
   });
 
-  function addIntro(){ const intro = document.createElement('div'); intro.style.cssText='padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.03);color:#dbeaff;'; intro.textContent='I am MatGPT — ask me for time, date, math, text transforms, or app actions. To enable a remote AI, click the small chat icon and paste an API key.'; chat.appendChild(intro); }
+  btnCopilot.addEventListener('click', ()=>{
+    const cur = localStorage.getItem('matgpt_use_copilot') === '1';
+    const next = !cur;
+    setCopilotActive(next);
+    if (next){
+      alert('Copilot bridge enabled (will be used if window.copilot.answer is available).');
+    } else {
+      alert('Copilot bridge disabled.');
+    }
+  });
+
+  function addIntro(){
+    const intro = document.createElement('div');
+    intro.style.cssText='padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02);color:#dfeaff;';
+    intro.textContent = 'Welcome to MatGPT. Type a question below and press Enter. Use the Copilot button to prefer a Copilot bridge if available.';
+    chat.appendChild(intro);
+  }
 
   // compose UI
   shell.appendChild(topbar);
