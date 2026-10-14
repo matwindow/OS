@@ -68,7 +68,7 @@ render:(root)=>{
 
   const output = document.createElement('div');
   output.classList.add('matgpt-cmd-output');
-  output.style.cssText = 'flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable both-edges;-webkit-overflow-scrolling:touch;font-size:13px;line-height:1.4;white-space:pre-wrap;padding-right:12px;position:relative;z-index:2;';
+  output.style.cssText = 'flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable both-edges;-webkit-overflow-scrolling:touch;font-size:13px;line-height:1.4;white-space:pre-wrap;padding-right:12px;position:relative;z-index:2;pointer-events:auto;touch-action:pan-y;';
   output.tabIndex = 0;
   term.appendChild(output);
 
@@ -160,6 +160,23 @@ render:(root)=>{
 
   form.addEventListener('submit', (e)=>{ e.preventDefault(); const val = input.value.trim(); if (!val) return; appendOut('> ' + val); runCmd(val); input.value = ''; });
 
+  // If wheel events are being intercepted by an outer container or the OS, forward them to the output when the pointer is over it.
+  function forwardWheelToOutput(e){
+    try{
+      const r = output.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom){
+        // scroll output manually and prevent outer handlers
+        output.scrollTop += e.deltaY;
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }catch(_){ }
+  }
+  // listen on root and window to catch wheel events that don't reach the output
+  root.addEventListener('wheel', forwardWheelToOutput, { passive:false });
+  window.addEventListener('wheel', forwardWheelToOutput, { passive:false });
+
+  // ensure output itself still stops propagation so parent won't also scroll
   output.addEventListener('wheel', (e)=>{ e.stopPropagation(); }, { passive:true });
 
   appendOut(['Welcome to CMD!', 'Type /help for available commands.']);
