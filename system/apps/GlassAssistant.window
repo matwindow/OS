@@ -16,7 +16,7 @@ Minimalize:{
 },
 OnOpen:()=>{},
 Style:{
-  blur:"22%",
+  blur:"70%",
   title:"Glass Assistant",
   titlebar:{
     color:"rgba(12,14,20,0.6)"
